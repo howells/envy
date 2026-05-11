@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@howells/typescript-config/tsc-no-dom-library-monorepo",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../config" },
+    { "path": "../dotenv" },
+    { "path": "../next" },
+    { "path": "../lint" },
+    { "path": "../adapters/vercel" },
+    { "path": "../adapters/railway" }
+  ]
+}

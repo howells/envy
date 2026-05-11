@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@howells/typescript-config/tsc-no-dom-library-monorepo",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "paths": {
+      "@envy/core": ["../core/src/index"]
+    },
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

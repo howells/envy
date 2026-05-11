@@ -1,0 +1,29 @@
+{
+  "name": "envy-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "clean": "pnpm -r clean",
+    "lint": "howells-lint .",
+    "lint:fix": "howells-format .",
+    "lint:strict": "howells-lint-strict .",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@howells/lint": "^0.1.6",
+    "@howells/typescript-config": "^0.1.2",
+    "@types/node": "^24.10.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15",
+    "zod": "^4.3.6"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@envy/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "bin": {
+    "envy": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean --sourcemap && tsup src/cli.ts --format esm --no-config --clean=false --sourcemap",
+    "clean": "rm -rf dist",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@envy/adapter-railway": "workspace:*",
+    "@envy/adapter-vercel": "workspace:*",
+    "@envy/config": "workspace:*",
+    "@envy/core": "workspace:*",
+    "@envy/dotenv": "workspace:*",
+    "@envy/lint": "workspace:*",
+    "@envy/next": "workspace:*"
+  }
+}

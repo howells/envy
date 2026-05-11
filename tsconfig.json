@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/config" },
+    { "path": "./packages/dotenv" },
+    { "path": "./packages/test" },
+    { "path": "./packages/next" },
+    { "path": "./packages/lint" },
+    { "path": "./packages/adapters/vercel" },
+    { "path": "./packages/adapters/railway" },
+    { "path": "./packages/cli" }
+  ]
+}
