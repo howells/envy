@@ -1,6 +1,6 @@
 {
-  "name": "@envy/core",
-  "version": "0.0.0",
+  "name": "@howells/envy",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": {
@@ -11,7 +11,7 @@
   },
   "files": [
     "dist",
-    "src",
+    "src/index.ts",
     "README.md"
   ],
   "scripts": {
@@ -25,5 +25,18 @@
   },
   "devDependencies": {
     "zod": "^4.3.6"
-  }
+  },
+  "description": "Zod-powered environment parsing for TypeScript applications.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/howells/envy.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/howells/envy/issues"
+  },
+  "homepage": "https://github.com/howells/envy#readme"
 }

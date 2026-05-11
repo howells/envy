@@ -1,11 +1,11 @@
 # Core API
 
-`@envy/core` is the implemented foundation of Envy. It defines schemas, validates input objects, and returns typed parsed values.
+`@howells/envy` is the implemented foundation of Envy. It defines schemas, validates input objects, and returns typed parsed values.
 
 ## Define A Schema
 
 ```ts
-import { defineEnv, v } from "@envy/core";
+import { defineEnv, v } from "@howells/envy";
 import { z } from "zod";
 
 export const envSchema = defineEnv({
@@ -199,7 +199,7 @@ CLI checks should still report undeclared keys in env files. Runtime parsing kee
 Invalid input throws `EnvValidationError`.
 
 ```ts
-import { EnvValidationError } from "@envy/core";
+import { EnvValidationError } from "@howells/envy";
 
 try {
   envSchema.parse(process.env);

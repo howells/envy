@@ -18,7 +18,7 @@ export interface LoadDotenvOptions {
  *
  * Core parsing intentionally accepts plain objects and does not read files.
  * This helper exists for applications and CLIs that want conventional `.env`
- * loading without coupling `@envy/core` to the filesystem.
+ * loading without coupling `@howells/envy` to the filesystem.
  */
 export function loadDotenv(
   _paths: readonly string[],

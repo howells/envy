@@ -8,7 +8,7 @@
     "declarationMap": true,
     "outDir": "dist",
     "paths": {
-      "@envy/core": ["../core/src/index"]
+      "@howells/envy": ["../core/src/index"]
     },
     "rootDir": "src"
   },

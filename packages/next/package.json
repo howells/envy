@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@envy/core": "workspace:*"
-  }
+    "@howells/envy": "workspace:*"
+  },
+  "private": true
 }

@@ -32,13 +32,13 @@ importers:
 
   packages/adapters/railway:
     dependencies:
-      '@envy/core':
+      '@howells/envy':
         specifier: workspace:*
         version: link:../../core
 
   packages/adapters/vercel:
     dependencies:
-      '@envy/core':
+      '@howells/envy':
         specifier: workspace:*
         version: link:../../core
 
@@ -53,9 +53,6 @@ importers:
       '@envy/config':
         specifier: workspace:*
         version: link:../config
-      '@envy/core':
-        specifier: workspace:*
-        version: link:../core
       '@envy/dotenv':
         specifier: workspace:*
         version: link:../dotenv
@@ -65,6 +62,9 @@ importers:
       '@envy/next':
         specifier: workspace:*
         version: link:../next
+      '@howells/envy':
+        specifier: workspace:*
+        version: link:../core
 
   packages/config: {}
 
@@ -84,13 +84,13 @@ importers:
 
   packages/next:
     dependencies:
-      '@envy/core':
+      '@howells/envy':
         specifier: workspace:*
         version: link:../core
 
   packages/test:
     dependencies:
-      '@envy/core':
+      '@howells/envy':
         specifier: workspace:*
         version: link:../core
 

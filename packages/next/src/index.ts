@@ -1,4 +1,4 @@
-import type { EnvDefinition, EnvSchema } from "@envy/core";
+import type { EnvDefinition, EnvSchema } from "@howells/envy";
 
 /**
  * Options for synchronizing generated Next.js env files.

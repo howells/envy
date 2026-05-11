@@ -4,7 +4,7 @@ Zod-powered environment parsing for TypeScript apps, with a path toward lint enf
 
 Envy starts from a simple rule: application code should import a typed env object, not read `process.env` directly. Validation is explicit, tests stay ergonomic, and deployment checks should catch missing or misspelled variables before a deploy starts.
 
-> Current status: `@envy/core` is implemented and tested. CLI, provider adapters, Next codegen, dotenv loading, and lint helpers are scaffolded with documented public surfaces and will be filled in next.
+> Current status: `@howells/envy` is implemented and tested. CLI, provider adapters, Next codegen, dotenv loading, and lint helpers are scaffolded with documented public surfaces and will be filled in next.
 
 ## Why
 
@@ -20,7 +20,7 @@ Env bugs are usually boring and expensive:
 Envy is designed to make the happy path explicit:
 
 ```ts
-import { defineEnv } from "@envy/core";
+import { defineEnv } from "@howells/envy";
 import { z } from "zod";
 
 export const envSchema = defineEnv({
@@ -50,7 +50,7 @@ export const env = envSchema.parseServer(process.env);
 This repository is still local scaffold work. Once published, the core install shape should be:
 
 ```bash
-pnpm add @envy/core zod
+pnpm add @howells/envy zod
 ```
 
 For this workspace:

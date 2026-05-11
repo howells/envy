@@ -1,4 +1,4 @@
-import type { EnvDefinition, EnvSchema } from "@envy/core";
+import type { EnvDefinition, EnvSchema } from "@howells/envy";
 
 /**
  * Mutable test-only store for controlled environment overrides.

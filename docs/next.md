@@ -14,7 +14,7 @@ src/env/client.ts
 
 ```ts
 // src/env/schema.ts
-import { defineEnv } from "@envy/core";
+import { defineEnv } from "@howells/envy";
 import { z } from "zod";
 
 export const envSchema = defineEnv({

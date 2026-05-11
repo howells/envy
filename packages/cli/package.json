@@ -27,9 +27,10 @@
     "@envy/adapter-railway": "workspace:*",
     "@envy/adapter-vercel": "workspace:*",
     "@envy/config": "workspace:*",
-    "@envy/core": "workspace:*",
     "@envy/dotenv": "workspace:*",
     "@envy/lint": "workspace:*",
-    "@envy/next": "workspace:*"
-  }
+    "@envy/next": "workspace:*",
+    "@howells/envy": "workspace:*"
+  },
+  "private": true
 }
