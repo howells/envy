@@ -1,3 +1,31 @@
+/**
+ * Zod-powered environment parsing for TypeScript applications.
+ *
+ * The core package is intentionally side-effect free: defining a schema does
+ * not read from `process.env`, load dotenv files, or validate anything until a
+ * parse method is called. This keeps tests, framework build phases, and CLI
+ * tools predictable.
+ *
+ * @example
+ * ```ts
+ * import { defineEnv } from "@howells/envy";
+ * import { z } from "zod";
+ *
+ * const envSchema = defineEnv({
+ *   server: {
+ *     DATABASE_URL: z.string().url(),
+ *   },
+ *   public: {
+ *     NEXT_PUBLIC_APP_URL: z.string().url(),
+ *   },
+ * });
+ *
+ * const env = envSchema.parseServer(process.env);
+ * ```
+ *
+ * @module
+ */
+
 import type { z } from "zod";
 
 /**
@@ -6,16 +34,27 @@ import type { z } from "zod";
  * `server` and `public` are required by default, `system` is for runtime or
  * provider-owned values, and `optional` permits absence while still validating
  * any provided value.
+ *
+ * Group names are part of the public authoring model and are also used in
+ * structured validation errors so CLI and editor integrations can explain where
+ * a failing key came from.
  */
 export type EnvGroupName = "server" | "public" | "system" | "optional";
 
 /**
  * Deployment environments that a provider adapter can target.
+ *
+ * The parser does not use this directly. It is metadata for future deploy
+ * checks and safe provider pushes.
  */
 export type DeployEnvironment = "development" | "preview" | "production";
 
 /**
  * A Zod schema usable as an environment variable validator.
+ *
+ * Envy currently targets Zod directly rather than a schema abstraction layer.
+ * This keeps the type model straightforward and lets callers use normal Zod
+ * defaults, coercions, transforms, enums, literals, and refinements.
  */
 export type EnvValueSchema = z.ZodType;
 
@@ -37,6 +76,10 @@ export interface EnvVarOptions {
 
 /**
  * A Zod schema wrapped with Envy metadata.
+ *
+ * Most schema entries can be plain Zod schemas. Reach for this wrapper when a
+ * key needs extra metadata, such as limiting deploy checks to preview and
+ * production.
  */
 export interface EnvVarDefinition<
   TSchema extends EnvValueSchema = EnvValueSchema,
@@ -54,6 +97,9 @@ export interface EnvVarDefinition<
 
 /**
  * A single variable entry in an Envy schema group.
+ *
+ * Entries may be raw Zod schemas or `v(...)` metadata wrappers. Both parse the
+ * same way; metadata is reserved for CLI and provider tooling.
  */
 export type EnvSchemaEntry = EnvValueSchema | EnvVarDefinition;
 
@@ -64,6 +110,19 @@ export type EnvGroupDefinition = Record<string, EnvSchemaEntry>;
 
 /**
  * The grouped authoring shape accepted by {@link defineEnv}.
+ *
+ * Keys must be unique across all groups. Public keys are prefix-enforced during
+ * schema definition so mistakes fail before runtime parsing.
+ *
+ * @example
+ * ```ts
+ * defineEnv({
+ *   server: { DATABASE_URL: z.string().url() },
+ *   public: { NEXT_PUBLIC_APP_URL: z.string().url() },
+ *   system: { NODE_ENV: z.string().default("development") },
+ *   optional: { SENTRY_DSN: z.string().url() },
+ * });
+ * ```
  */
 export interface EnvDefinition {
   /** Server-only, private variables. Required by default. */
@@ -125,6 +184,9 @@ type Simplify<T> = {
  *
  * Server parsing includes public values because server code often needs public
  * URLs and publishable keys too.
+ *
+ * Optional group values are represented as `T | undefined` even when their
+ * inner Zod schema is required, because absence is allowed by group semantics.
  */
 export type ServerEnv<TDefinition extends EnvDefinition> = Simplify<
   InferGroup<TDefinition["server"]> &
@@ -135,6 +197,9 @@ export type ServerEnv<TDefinition extends EnvDefinition> = Simplify<
 
 /**
  * Parsed values available to client-side code.
+ *
+ * This includes only the `public` group. Server, system, and optional keys are
+ * intentionally absent from the client type surface.
  */
 export type ClientEnv<TDefinition extends EnvDefinition> = Simplify<
   InferGroup<TDefinition["public"]>
@@ -142,6 +207,10 @@ export type ClientEnv<TDefinition extends EnvDefinition> = Simplify<
 
 /**
  * Parsed values for non-Next or server-only contexts.
+ *
+ * This is currently equivalent to {@link ServerEnv}. It exists as a named type
+ * because the broad parse API is conceptually different from a framework
+ * server/client split.
  */
 export type ParsedEnv<TDefinition extends EnvDefinition> =
   ServerEnv<TDefinition>;
@@ -162,11 +231,19 @@ export interface EnvValidationIssue {
 
 /**
  * Error thrown when an input object does not satisfy an Envy schema.
+ *
+ * The `message` is concise for humans, while {@link EnvValidationError.issues}
+ * preserves structured data for test assertions and CLI formatting.
  */
 export class EnvValidationError extends Error {
   /** Structured issues suitable for CLI formatting. */
   readonly issues: readonly EnvValidationIssue[];
 
+  /**
+   * Creates an error from one or more structured validation issues.
+   *
+   * @param issues - Problems returned while parsing declared env keys.
+   */
   constructor(issues: readonly EnvValidationIssue[]) {
     super(formatValidationMessage(issues));
     this.name = "EnvValidationError";
@@ -176,6 +253,9 @@ export class EnvValidationError extends Error {
 
 /**
  * Runtime representation of a normalized env schema.
+ *
+ * Instances are created by {@link defineEnv}. They hold the original definition
+ * for tooling and expose explicit parse methods for runtime values.
  */
 export interface EnvSchema<TDefinition extends EnvDefinition> {
   /** Original grouped definition passed to {@link defineEnv}. */
@@ -187,19 +267,36 @@ export interface EnvSchema<TDefinition extends EnvDefinition> {
    *
    * Lazy access exists for awkward framework and test environments. Prefer
    * explicit parsing when the application can validate up front.
+   *
+   * @param input - Object containing raw env values, usually `process.env`.
+   * @returns A typed proxy over declared env keys.
+   * @throws {@link EnvValidationError} when an accessed key fails validation.
    */
   lazy(input: Record<string, unknown>): ParsedEnv<TDefinition>;
   /**
    * Parses every group and returns a plain frozen object containing only
    * schema-declared keys.
+   *
+   * @param input - Object containing raw env values, usually `process.env`.
+   * @returns A frozen object containing server, public, system, and optional keys.
+   * @throws {@link EnvValidationError} when any included key fails validation.
    */
   parse(input: Record<string, unknown>): ParsedEnv<TDefinition>;
   /**
    * Parses public keys only for client bundles.
+   *
+   * @param input - Explicit public env mapping. In Next.js this should contain
+   * literal `process.env.NEXT_PUBLIC_*` reads so bundling can inline values.
+   * @returns A frozen object containing only public keys.
+   * @throws {@link EnvValidationError} when any public key fails validation.
    */
   parseClient(input: Record<string, unknown>): ClientEnv<TDefinition>;
   /**
    * Parses server, public, system, and optional keys for server-side code.
+   *
+   * @param input - Object containing raw env values, usually `process.env`.
+   * @returns A frozen object containing all server-side env keys.
+   * @throws {@link EnvValidationError} when any server-side key fails validation.
    */
   parseServer(input: Record<string, unknown>): ServerEnv<TDefinition>;
 }
@@ -227,6 +324,22 @@ const serverGroups = allGroups;
  * This function performs schema-shape validation immediately, such as public
  * prefix enforcement and duplicate-key detection. Runtime values are validated
  * only when one of the parse methods is called.
+ *
+ * @param definition - Grouped env variable schema.
+ * @param options - Parser and schema-shape options.
+ * @returns A schema object with explicit parse methods.
+ * @throws Error when public keys do not use the configured prefix or when a key
+ * is declared in more than one group.
+ *
+ * @example
+ * ```ts
+ * const envSchema = defineEnv({
+ *   server: { DATABASE_URL: z.string().url() },
+ *   public: { NEXT_PUBLIC_APP_URL: z.string().url() },
+ * });
+ *
+ * const env = envSchema.parseServer(process.env);
+ * ```
  */
 export function defineEnv<const TDefinition extends EnvDefinition>(
   definition: TDefinition,
@@ -277,6 +390,9 @@ export function defineEnv<const TDefinition extends EnvDefinition>(
 
 /**
  * Wraps a Zod schema with metadata for deploy and tooling helpers.
+ *
+ * This is intentionally not exported directly. Consumers use {@link v}, which
+ * exposes the callable wrapper plus semantic aliases.
  */
 function defineVar<TSchema extends EnvValueSchema>(
   schema: TSchema,
@@ -294,6 +410,17 @@ function defineVar<TSchema extends EnvValueSchema>(
  *
  * Raw Zod schemas are accepted directly in every group, so use `v(...)` only
  * when a variable needs non-default metadata such as deploy targeting.
+ *
+ * @example
+ * ```ts
+ * const envSchema = defineEnv({
+ *   server: {
+ *     OPENAI_API_KEY: v(z.string().min(1), {
+ *       deploy: ["preview", "production"],
+ *     }),
+ *   },
+ * });
+ * ```
  */
 export const v = Object.assign(defineVar, {
   /**

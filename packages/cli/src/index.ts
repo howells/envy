@@ -1,5 +1,17 @@
 /**
+ * Public command metadata for the `envy` binary.
+ *
+ * The executable is still a scaffold, but this registry gives docs and tests a
+ * single source of truth for the command surface Envy intends to support.
+ *
+ * @module
+ */
+
+/**
  * Describes a command exposed by the `envy` binary.
+ *
+ * Command objects intentionally contain metadata only. Actual command handlers
+ * should live separately so help output can stay cheap to import.
  */
 export interface CliCommand {
   /** Space-separated command name as shown in help output. */
@@ -10,6 +22,10 @@ export interface CliCommand {
 
 /**
  * Public command registry used by help output and future command dispatch.
+ *
+ * The registry focuses on user-level workflows: check local files, check remote
+ * provider state, push only schema-declared variables, and initialize generated
+ * Next/lint integrations.
  */
 export const cliCommands: readonly CliCommand[] = [
   {
