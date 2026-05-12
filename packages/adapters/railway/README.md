@@ -2,17 +2,21 @@
 
 Railway deploy adapter for Envy.
 
-This package is scaffolded. It will check and safely push schema-declared variables for a Railway service.
+This package checks and safely pushes schema-declared variables for a Railway service.
 
-Planned usage:
+Usage:
 
 ```ts
 import { railway } from "@envy/adapter-railway";
 
 const adapter = railway({
-  project: "sorrel",
-  service: "web",
-  environment: "production",
+  environmentId: "environment_id",
+  projectId: "project_id",
+  serviceId: "service_id",
+});
+
+await adapter.check({
+  keys: ["DATABASE_URL"],
 });
 ```
 

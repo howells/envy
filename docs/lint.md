@@ -16,7 +16,7 @@ const url = process.env.DATABASE_URL;
 
 ## Preferred V1 Path: Oxlint
 
-Oxlint has a native `node/no-process-env` rule. Envy should use that first before inventing a custom linter.
+Oxlint has a native `node/no-process-env` rule. Envy uses that first before inventing a custom linter.
 
 ```jsonc
 {
@@ -32,11 +32,11 @@ Oxlint has a native `node/no-process-env` rule. Envy should use that first befor
 }
 ```
 
-The scaffolded `@envy/lint` package already exposes `createOxlintConfig()`.
+`@howells/envy/lint` exposes `createOxlintConfig()` and `createLintIntegration()`.
 
 ## Biome
 
-Biome can remain the formatter and general linter. Envy can provide a simpler Biome companion integration later, but Biome's current plugin model is less expressive for schema-aware env rules.
+Biome can remain the formatter and general linter. Envy provides a small Biome companion config for generated env files, while direct `process.env` enforcement should run through Oxlint or ESLint.
 
 The expected setup for projects that use Biome today is:
 
@@ -51,7 +51,7 @@ or a wrapper command from a shared lint package.
 
 ESLint remains useful for teams that already have ESLint or need more precise custom behavior than native Oxlint provides.
 
-The long-term goal is to share rule semantics across:
+The lint helpers cover:
 
 - Oxlint native config for the common path
 - ESLint plugin for precise rule behavior

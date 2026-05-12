@@ -20,5 +20,8 @@
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@howells/envy": "workspace:*"
+  },
   "private": true
 }

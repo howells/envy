@@ -1,49 +1,47 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { EnvDefinition, EnvSchema } from "@howells/envy";
 
-/**
- * Next.js integration helpers for Envy schemas.
- *
- * Next requires public variables to be referenced as literal property reads so
- * the bundler can inline them. This package owns that framework-specific code
- * generation boundary while the core parser remains framework-agnostic.
- *
- * @module
- */
-
-/**
- * Options for synchronizing generated Next.js env files.
- */
-export interface SyncNextOptions {
-  /**
-   * Destination for generated client-side public env mapping.
-   *
-   * The generated file should contain explicit `process.env.NEXT_PUBLIC_*`
-   * accesses, not dynamic iteration, so Next can statically inline values.
-   */
-  clientFile?: string;
-  /**
-   * Destination for generated server-side env parsing.
-   *
-   * This file can safely read from `process.env` because it becomes the single
-   * typed boundary that application code imports instead.
-   */
-  serverFile?: string;
+export interface NextEnvCodegenOptions {
+  readonly clientFile?: string;
+  readonly schemaImportPath?: string;
+  readonly serverFile?: string;
 }
 
-/**
- * Generates or updates explicit Next.js env files from an Envy schema.
- *
- * Client-side output must contain literal `process.env.NEXT_PUBLIC_*` property
- * reads so Next.js can inline values during bundling. This is why Envy uses
- * code generation here instead of runtime reflection.
- *
- * @param _schema - Envy schema that defines server and public keys.
- * @param _options - Destination files for generated Next integration code.
- * @throws Error until the Next integration implementation is added.
- */
+export interface GeneratedNextEnvFiles {
+  readonly client: string;
+  readonly server: string;
+}
+
+export function generateNextEnvFiles<TDefinition extends EnvDefinition>(
+  schema: EnvSchema<TDefinition>,
+  options: Pick<NextEnvCodegenOptions, "schemaImportPath"> = {},
+): GeneratedNextEnvFiles {
+  const schemaImportPath = options.schemaImportPath ?? "./schema";
+  const publicKeys = Object.keys(schema.definition.public ?? {});
+  const clientMapping =
+    publicKeys.length === 0
+      ? ""
+      : `${publicKeys.map((key) => `  ${key}: process.env.${key},`).join("\n")}\n`;
+
+  return {
+    client: `import { envSchema } from "${schemaImportPath}";\n\nexport const env = envSchema.parseClient({\n${clientMapping}});\n`,
+    server: `import { envSchema } from "${schemaImportPath}";\n\nexport const env = envSchema.parseServer(process.env);\n`,
+  };
+}
+
 export function syncNextEnv<TDefinition extends EnvDefinition>(
-  _schema: EnvSchema<TDefinition>,
-  _options: SyncNextOptions = {},
-): void {
-  throw new Error("@envy/next syncNextEnv is not implemented yet.");
+  schema: EnvSchema<TDefinition>,
+  options: NextEnvCodegenOptions = {},
+): GeneratedNextEnvFiles {
+  const clientFile = options.clientFile ?? "src/env/client.ts";
+  const serverFile = options.serverFile ?? "src/env/server.ts";
+  const generated = generateNextEnvFiles(schema, options);
+
+  mkdirSync(dirname(clientFile), { recursive: true });
+  mkdirSync(dirname(serverFile), { recursive: true });
+  writeFileSync(clientFile, generated.client);
+  writeFileSync(serverFile, generated.server);
+
+  return generated;
 }

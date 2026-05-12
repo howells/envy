@@ -1,6 +1,6 @@
 {
   "name": "@howells/envy",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
   "bin": {
     "envy": "dist/cli.js"
@@ -13,6 +13,31 @@
     },
     "./cli": {
       "import": "./dist/cli.js"
+    },
+    "./dotenv": {
+      "types": "./dist/dotenv.d.ts",
+      "import": "./dist/dotenv.js",
+      "require": "./dist/dotenv.cjs"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
+    },
+    "./lint": {
+      "types": "./dist/lint.d.ts",
+      "import": "./dist/lint.js",
+      "require": "./dist/lint.cjs"
+    },
+    "./adapters/vercel": {
+      "types": "./dist/adapters/vercel.d.ts",
+      "import": "./dist/adapters/vercel.js",
+      "require": "./dist/adapters/vercel.cjs"
+    },
+    "./adapters/railway": {
+      "types": "./dist/adapters/railway.d.ts",
+      "import": "./dist/adapters/railway.js",
+      "require": "./dist/adapters/railway.cjs"
     }
   },
   "files": [
@@ -23,10 +48,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean --sourcemap && tsup src/cli.ts --format esm --no-config --clean=false --sourcemap",
+    "build": "tsup src/index.ts src/dotenv.ts src/next.ts src/lint.ts src/adapters/vercel.ts src/adapters/railway.ts --format esm,cjs --dts --clean --sourcemap && tsup src/cli.ts --format esm --no-config --clean=false --sourcemap",
     "clean": "rm -rf dist",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
   },
   "peerDependencies": {
     "zod": "^4.0.0"

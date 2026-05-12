@@ -2,7 +2,7 @@
 
 Lint integration helpers for Envy.
 
-This package is scaffolded. It currently exposes `createOxlintConfig`, which generates the preferred initial enforcement config around Oxlint's native `node/no-process-env` rule.
+This package exposes lint config helpers for Oxlint, ESLint, and Biome companion config.
 
 ```ts
 import { createOxlintConfig } from "@envy/lint";

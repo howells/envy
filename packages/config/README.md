@@ -2,7 +2,7 @@
 
 Typed config helper for `envy.config.ts`.
 
-This package is scaffolded and exports `defineConfig`.
+This package exports `defineConfig`.
 
 ```ts
 import { defineConfig } from "@envy/config";

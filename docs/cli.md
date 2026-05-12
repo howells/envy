@@ -8,14 +8,14 @@ npx envy --help
 npx envy describe
 ```
 
-It currently provides a working local preflight check for validating
+It provides a working local preflight check for validating
 `process.env` or dotenv files against an Envy schema before CI or deployment
 continues.
 
 ## Config
 
-`envy.config.ts` is reserved for future commands. The implemented local check is
-explicit and takes `--schema`.
+`envy.config.ts` gives project defaults a typed home. The local check remains
+explicit and accepts `--schema` for monorepos and one-off checks.
 
 ```ts
 import { defineConfig } from "@envy/config";
@@ -97,19 +97,17 @@ The dotenv parser supports common syntax: comments, blank lines, `export KEY=`,
 single-quoted values, double-quoted values, inline comments after unquoted
 values, and empty values. It does not append newlines to secrets.
 
-## Future Commands
+## Helper APIs
 
-Provider checks, safe provider pushes, Next codegen, and lint initialization are
-still separate implementation tracks:
+Provider checks, safe provider pushes, Next codegen, dotenv loading, and lint
+configuration are available as package subpaths:
 
-```bash
-envy check vercel
-envy check railway
-envy push vercel
-envy push railway
-envy init next
-envy sync next
-envy init lint
+```ts
+import { loadDotenv } from "@howells/envy/dotenv";
+import { syncNextEnv } from "@howells/envy/next";
+import { createLintIntegration } from "@howells/envy/lint";
+import { vercel } from "@howells/envy/adapters/vercel";
+import { railway } from "@howells/envy/adapters/railway";
 ```
 
 ## Exit Codes

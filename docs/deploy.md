@@ -1,6 +1,6 @@
 # Deploy Guide
 
-Deploy support is planned but not implemented yet. This guide documents the intended contract.
+Deploy support is available through provider adapters.
 
 The goal is to catch env drift before a deploy starts, then safely push schema-declared variables without shell quoting mistakes.
 
@@ -13,9 +13,18 @@ V1 targets:
 
 ## Check Before Deploy
 
-```bash
-envy check vercel --project web --environment production
-envy check railway --project sorrel --service web --environment production
+```ts
+import { listDeployEnvVars } from "@howells/envy";
+import { vercel } from "@howells/envy/adapters/vercel";
+
+const keys = listDeployEnvVars(envSchema, {
+  environment: "production",
+}).map((entry) => entry.key);
+
+const result = await vercel({ project: "web" }).check({
+  environment: "production",
+  keys,
+});
 ```
 
 Checks should verify presence of deploy-relevant variables:
@@ -40,16 +49,32 @@ Vercel production
 
 ## Safe Push
 
-```bash
-envy push vercel --from .env.production --environment production --dry-run
-envy push railway --from .env.production --service web --environment production --dry-run
+```ts
+import { loadDotenv } from "@howells/envy/dotenv";
+import { railway } from "@howells/envy/adapters/railway";
+
+const values: Record<string, string | undefined> = {};
+loadDotenv([".env.production"], { processEnv: values });
+
+await railway({
+  environmentId: "env_id",
+  projectId: "project_id",
+  serviceId: "service_id",
+}).push({
+  dryRun: true,
+  values: Object.fromEntries(
+    Object.entries(values).filter((entry): entry is [string, string] =>
+      typeof entry[1] === "string"
+    ),
+  ),
+});
 ```
 
 Push should:
 
 - parse `.env` with a real parser
 - use provider API first
-- fall back to provider CLI only when safe
+- use provider APIs directly
 - push schema-declared keys only
 - fail on undeclared keys by default
 - exclude `system` keys by default
@@ -66,7 +91,7 @@ Secrets are easy to corrupt with shell commands:
 echo "$SECRET" | vercel env add SECRET production
 ```
 
-This can accidentally add trailing newlines or mishandle multiline values. Envy should push exact parsed values through structured provider APIs wherever possible.
+This can accidentally add trailing newlines or mishandle multiline values. Envy pushes exact parsed values through structured provider APIs.
 
 ## Local Checks
 

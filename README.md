@@ -1,10 +1,10 @@
 # Envy
 
-Zod-powered environment parsing for TypeScript apps, with an installable CLI for local preflight checks and a path toward lint enforcement, Next.js env generation, deploy provider checks, and safe provider pushes.
+Zod-powered environment parsing for TypeScript apps, with an installable CLI for local preflight checks, lint enforcement helpers, Next.js env generation, deploy provider checks, and safe provider pushes.
 
 Envy starts from a simple rule: application code should import a typed env object, not read `process.env` directly. Validation is explicit, tests stay ergonomic, and deployment checks should catch missing or misspelled variables before a deploy starts.
 
-> Current status: `@howells/envy` includes the parser and an installable `envy check local` CLI. Provider adapters, Next codegen, dotenv loading helpers, and lint helpers are still separate scaffold packages.
+`@howells/envy` includes the parser, the `envy check local` CLI, dotenv helpers, Next.js codegen helpers, lint helpers, and Vercel/Railway provider adapters.
 
 ## Why
 
@@ -219,6 +219,18 @@ Errors use the same shape on stderr and semantic exit codes:
 - `70`: internal error
 
 See [CLI Guide](./docs/cli.md), [Deploy Guide](./docs/deploy.md), and [Lint Guide](./docs/lint.md).
+
+## Helper Subpaths
+
+The published package also exposes helper APIs:
+
+```ts
+import { loadDotenv } from "@howells/envy/dotenv";
+import { syncNextEnv } from "@howells/envy/next";
+import { createOxlintConfig } from "@howells/envy/lint";
+import { vercel } from "@howells/envy/adapters/vercel";
+import { railway } from "@howells/envy/adapters/railway";
+```
 
 ## Package Layout
 

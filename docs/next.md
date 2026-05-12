@@ -65,16 +65,22 @@ Next.js expects public env access to be statically visible:
 process.env.NEXT_PUBLIC_APP_URL
 ```
 
-A dynamic loop over schema keys is tempting, but it risks values not being inlined into the client bundle. Envy's planned `envy sync next` command should generate explicit mappings instead of relying on runtime reflection.
+A dynamic loop over schema keys is tempting, but it risks values not being inlined into the client bundle. `syncNextEnv()` generates explicit mappings instead of relying on runtime reflection.
 
-## Planned Commands
+## Codegen
 
-```bash
-envy init next
-envy sync next
+```ts
+import { syncNextEnv } from "@howells/envy/next";
+import { envSchema } from "./src/env/schema";
+
+syncNextEnv(envSchema, {
+  clientFile: "src/env/client.ts",
+  serverFile: "src/env/server.ts",
+  schemaImportPath: "./schema",
+});
 ```
 
-`init next` should create the initial layout. `sync next` should update the client mapping when public schema keys change.
+Run this when public schema keys change so the client mapping stays explicit.
 
 ## Import Rules
 

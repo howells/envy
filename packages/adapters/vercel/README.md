@@ -2,16 +2,20 @@
 
 Vercel deploy adapter for Envy.
 
-This package is scaffolded. It will check and safely push schema-declared variables for a Vercel project.
+This package checks and safely pushes schema-declared variables for a Vercel project.
 
-Planned usage:
+Usage:
 
 ```ts
 import { vercel } from "@envy/adapter-vercel";
 
 const adapter = vercel({
   project: "web",
+});
+
+await adapter.check({
   environment: "production",
+  keys: ["DATABASE_URL"],
 });
 ```
 

@@ -319,6 +319,42 @@ const clientGroups = ["public"] as const satisfies readonly EnvGroupName[];
 const serverGroups = allGroups;
 
 /**
+ * Public metadata for a single schema-declared environment variable.
+ *
+ * Tooling helpers use this shape to generate Next.js env mappings, deployment
+ * checks, and lint allowlists without reaching into Zod internals or reparsing
+ * the authoring object themselves.
+ */
+export interface EnvVarMetadata {
+  /** Group that owns the variable. */
+  readonly group: EnvGroupName;
+  /** Environment variable name. */
+  readonly key: string;
+  /** Metadata attached with {@link v}. */
+  readonly options: EnvVarOptions;
+  /** Whether the variable may be absent by group semantics. */
+  readonly optional: boolean;
+}
+
+/**
+ * Options for listing schema-declared variables.
+ */
+export interface ListEnvVarsOptions {
+  /** Restricts the returned variables to these groups. */
+  readonly groups?: readonly EnvGroupName[];
+}
+
+/**
+ * Options for listing variables that should participate in deploy checks.
+ */
+export interface ListDeployEnvVarsOptions {
+  /** Deployment environment to evaluate `v(..., { deploy })` metadata against. */
+  readonly environment: DeployEnvironment;
+  /** Include `system` variables. Defaults to false. */
+  readonly includeSystem?: boolean;
+}
+
+/**
  * Defines a grouped, Zod-powered environment schema.
  *
  * This function performs schema-shape validation immediately, such as public
@@ -386,6 +422,56 @@ export function defineEnv<const TDefinition extends EnvDefinition>(
       ) as ServerEnv<TDefinition>;
     },
   };
+}
+
+/**
+ * Lists schema-declared environment variables for tooling integrations.
+ *
+ * The returned metadata intentionally excludes validator instances. Consumers
+ * that need to validate values should call one of the schema parse methods;
+ * consumers that need to generate code, lint config, or deploy checks can use
+ * this lighter metadata view.
+ *
+ * @param schema - Envy schema returned by {@link defineEnv}.
+ * @param options - Optional group filter.
+ * @returns Stable metadata for schema-declared variables.
+ */
+export function listEnvVars<TDefinition extends EnvDefinition>(
+  schema: EnvSchema<TDefinition>,
+  options: ListEnvVarsOptions = {},
+): readonly EnvVarMetadata[] {
+  const entries = normalizeDefinition(schema.definition, schema.options);
+  const groups = new Set(options.groups ?? allGroups);
+
+  return entries
+    .filter((entry) => groups.has(entry.group))
+    .map((entry) => ({
+      group: entry.group,
+      key: entry.key,
+      optional: entry.optional,
+      options: entry.options,
+    }));
+}
+
+/**
+ * Lists variables that should be checked or pushed for a deploy target.
+ *
+ * Defaults are deliberately strict:
+ * server and public variables participate, optional variables participate only
+ * when explicitly marked with deploy metadata, and system variables are
+ * excluded unless explicitly requested or marked for deploy.
+ *
+ * @param schema - Envy schema returned by {@link defineEnv}.
+ * @param options - Target deployment environment and system-key behavior.
+ * @returns Deploy-relevant variable metadata.
+ */
+export function listDeployEnvVars<TDefinition extends EnvDefinition>(
+  schema: EnvSchema<TDefinition>,
+  options: ListDeployEnvVarsOptions,
+): readonly EnvVarMetadata[] {
+  return listEnvVars(schema).filter((entry) =>
+    shouldIncludeDeployEntry(entry, options),
+  );
 }
 
 /**
@@ -525,6 +611,35 @@ function isEnvVarDefinition(entry: EnvSchemaEntry): entry is EnvVarDefinition {
     "kind" in entry &&
     entry.kind === "envy.var"
   );
+}
+
+function shouldIncludeDeployEntry(
+  entry: EnvVarMetadata,
+  options: ListDeployEnvVarsOptions,
+): boolean {
+  const deploy = entry.options.deploy;
+
+  if (deploy === false) {
+    return false;
+  }
+
+  if (Array.isArray(deploy)) {
+    return deploy.includes(options.environment);
+  }
+
+  if (deploy === true) {
+    return true;
+  }
+
+  if (entry.group === "system") {
+    return options.includeSystem ?? false;
+  }
+
+  if (entry.group === "optional") {
+    return false;
+  }
+
+  return true;
 }
 
 function parseGroups(

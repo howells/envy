@@ -2,7 +2,7 @@
 
 Next.js helpers for Envy.
 
-This package is scaffolded. It will own `envy init next` and `envy sync next` implementation details for generating explicit client env mappings.
+This package generates explicit client env mappings and server env boundaries from an Envy schema.
 
 Recommended layout:
 

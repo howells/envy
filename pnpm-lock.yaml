@@ -69,6 +69,10 @@ importers:
   packages/config: {}
 
   packages/core:
+    dependencies:
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.4.2
     devDependencies:
       zod:
         specifier: ^4.3.6
@@ -76,11 +80,18 @@ importers:
 
   packages/dotenv:
     dependencies:
+      '@howells/envy':
+        specifier: workspace:*
+        version: link:../core
       dotenv:
         specifier: ^17.2.3
         version: 17.4.2
 
-  packages/lint: {}
+  packages/lint:
+    dependencies:
+      '@howells/envy':
+        specifier: workspace:*
+        version: link:../core
 
   packages/next:
     dependencies:

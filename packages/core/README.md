@@ -256,7 +256,26 @@ export const envSchema = defineEnv({
 });
 ```
 
-The parser ignores deploy metadata. CLI and provider tooling can use it later.
+The parser ignores deploy metadata. Provider tooling can use it through
+`listDeployEnvVars()`.
+
+## Helper Subpaths
+
+The package includes helper APIs for the deployment and framework edges:
+
+```ts
+import { loadDotenv } from "@howells/envy/dotenv";
+import { syncNextEnv } from "@howells/envy/next";
+import { createOxlintConfig } from "@howells/envy/lint";
+import { vercel } from "@howells/envy/adapters/vercel";
+import { railway } from "@howells/envy/adapters/railway";
+```
+
+- `@howells/envy/dotenv`: explicit `.env` loading without shelling out
+- `@howells/envy/next`: generated Next client/server env boundaries
+- `@howells/envy/lint`: Oxlint, ESLint, and Biome config helpers
+- `@howells/envy/adapters/vercel`: Vercel env presence checks and safe pushes
+- `@howells/envy/adapters/railway`: Railway env presence checks and safe pushes
 
 ## Errors
 
