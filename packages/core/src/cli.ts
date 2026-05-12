@@ -679,13 +679,25 @@ function parseWithMode(
   return schema.parseServer(input);
 }
 
+function isEnvValidationError(error: unknown): error is EnvValidationError {
+  return (
+    error instanceof EnvValidationError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      error.name === "EnvValidationError" &&
+      "issues" in error &&
+      Array.isArray(error.issues))
+  );
+}
+
 function reportCheckError(
   error: unknown,
   format: OutputFormat,
   io: CliIO,
   startedAt: number,
 ): number {
-  if (error instanceof EnvValidationError) {
+  if (isEnvValidationError(error)) {
     const problem = createProblem({
       code: "ENVY_VALIDATION_FAILED",
       fields: error.issues.map((issue) => ({

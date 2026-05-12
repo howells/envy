@@ -136,6 +136,61 @@ describe("runCli", () => {
     }
   });
 
+  it("recognizes validation failures from separately loaded schema modules", async () => {
+    const cwd = join(process.cwd(), ".tmp-cli-foreign-error-fixture");
+    await rm(cwd, { force: true, recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(
+      join(cwd, "schema.mjs"),
+      `
+        class EnvValidationError extends Error {
+          constructor() {
+            super("Invalid environment variables: DATABASE_URL");
+            this.name = "EnvValidationError";
+            this.issues = [
+              {
+                group: "server",
+                key: "DATABASE_URL",
+                message: "Invalid input: expected string, received undefined",
+                path: [],
+              },
+            ];
+          }
+        }
+
+        function parse() {
+          throw new EnvValidationError();
+        }
+
+        export const envSchema = {
+          parse,
+          parseClient: parse,
+          parseServer: parse,
+        };
+      `,
+    );
+    const output = createOutput(cwd);
+
+    try {
+      const code = await runCli(
+        ["check", "local", "--schema", "schema.mjs", "--json"],
+        output.io,
+      );
+
+      expect(code).toBe(65);
+      expect(output.stdout).toBe("");
+      expect(JSON.parse(output.stderr)).toMatchObject({
+        error: {
+          code: "ENVY_VALIDATION_FAILED",
+          fields: [{ path: "DATABASE_URL" }],
+        },
+        ok: false,
+      });
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
+
   it("returns semantic usage errors for missing schema", async () => {
     const output = createOutput();
     const code = await runCli(["check", "local", "--json"], output.io);
