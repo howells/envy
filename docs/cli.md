@@ -5,6 +5,7 @@ The `envy` CLI ships with `@howells/envy`.
 ```bash
 npm install @howells/envy zod
 npx envy --help
+npx envy describe
 ```
 
 It currently provides a working local preflight check for validating
@@ -69,8 +70,24 @@ npx envy check local --schema ./src/env/schema.ts --from .env.production --mode 
 JSON output is available for CI:
 
 ```bash
-npx envy check local --schema ./src/env/schema.ts --from .env.production --format json
+npx envy check local --schema ./src/env/schema.ts --from .env.production --json
 ```
+
+`--json` is an alias for `--format json`. Success writes a single-line JSON
+envelope to stdout:
+
+```json
+{ "ok": true, "data": {}, "metadata": {} }
+```
+
+Errors write the same envelope shape to stderr:
+
+```json
+{ "ok": false, "error": {}, "metadata": {} }
+```
+
+Run `envy describe` or `envy check local --describe` to inspect supported
+commands, flags, output shapes, and exit codes without scraping prose docs.
 
 When `--from` is omitted, the CLI validates the current process environment.
 When one or more `--from` files are provided, files are parsed and merged in
@@ -98,7 +115,10 @@ envy init lint
 ## Exit Codes
 
 - `0`: success
-- `1`: validation failure, config error, missing file, unknown command, or usage error
+- `64`: usage error, unknown command, invalid flag, or invalid path
+- `65`: env validation failed
+- `66`: schema or env file could not be read
+- `70`: internal error
 
 ## Output Rules
 
@@ -108,3 +128,4 @@ CLI output should:
 - never show secret values
 - include enough context to fix the problem without opening provider dashboards
 - support JSON output for CI
+- reject paths containing NUL bytes or terminal control characters

@@ -1,6 +1,6 @@
 {
   "name": "@howells/envy",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "type": "module",
   "bin": {
     "envy": "dist/cli.js"
@@ -17,6 +17,7 @@
   },
   "files": [
     "dist",
+    "AGENTS.md",
     "src/cli.ts",
     "src/index.ts",
     "README.md"

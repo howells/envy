@@ -198,6 +198,26 @@ Use `--mode server`, `--mode client`, or `--mode all` to choose the parser metho
 npx envy check local --schema ./src/env/schema.ts --from .env.production --mode all
 ```
 
+For agents and CI, use structured output and command introspection:
+
+```bash
+npx envy check local --schema ./src/env/schema.ts --from .env.production --json
+npx envy describe
+```
+
+JSON output uses a stable envelope:
+
+```json
+{ "ok": true, "data": {}, "metadata": {} }
+```
+
+Errors use the same shape on stderr and semantic exit codes:
+
+- `64`: usage error
+- `65`: env validation failed
+- `66`: schema or env file could not be read
+- `70`: internal error
+
 See [CLI Guide](./docs/cli.md), [Deploy Guide](./docs/deploy.md), and [Lint Guide](./docs/lint.md).
 
 ## Package Layout

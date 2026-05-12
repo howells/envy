@@ -208,6 +208,38 @@ npx envy check local \
 Omit `--from` to validate the current process environment. Use `--format json`
 for CI output that another tool can parse.
 
+`--json` is an alias for `--format json`:
+
+```bash
+npx envy check local --schema ./src/env/schema.ts --from .env.production --json
+```
+
+JSON success is written to stdout:
+
+```json
+{ "ok": true, "data": {}, "metadata": {} }
+```
+
+JSON errors are written to stderr with recoverable details:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "ENVY_VALIDATION_FAILED",
+    "message": "Environment validation failed with 1 issue(s).",
+    "suggestions": ["Set every required schema variable in the checked env source."]
+  },
+  "metadata": {}
+}
+```
+
+Inspect the command contract programmatically:
+
+```bash
+npx envy describe
+```
+
 ## Metadata
 
 Raw Zod schemas are enough for most variables. Use `v(...)` when tooling needs per-variable metadata.

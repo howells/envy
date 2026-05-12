@@ -59,6 +59,43 @@ describe("runCli", () => {
     }
   });
 
+  it("returns a consistent JSON success envelope with --json", async () => {
+    const fixture = await createCliFixture();
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "check",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          ".env.production",
+          "--json",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(0);
+      expect(JSON.parse(output.stdout)).toMatchObject({
+        data: {
+          keyCount: 2,
+          keys: ["DATABASE_URL", "OPENAI_API_KEY"],
+          mode: "server",
+          sources: [".env.production"],
+        },
+        metadata: {
+          command: "check local",
+        },
+        ok: true,
+      });
+      expect(output.stderr).toBe("");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("returns structured validation failures", async () => {
     const fixture = await createCliFixture({
       envFile: "DATABASE_URL=not-a-url\n",
@@ -80,17 +117,102 @@ describe("runCli", () => {
         output.io,
       );
 
-      expect(code).toBe(1);
-      expect(JSON.parse(output.stdout)).toMatchObject({
-        issues: [
-          { group: "server", key: "DATABASE_URL" },
-          { group: "server", key: "OPENAI_API_KEY" },
-        ],
+      expect(code).toBe(65);
+      expect(output.stdout).toBe("");
+      expect(JSON.parse(output.stderr)).toMatchObject({
+        error: {
+          code: "ENVY_VALIDATION_FAILED",
+          fields: [{ path: "DATABASE_URL" }, { path: "OPENAI_API_KEY" }],
+          isRetriable: false,
+          suggestions: expect.any(Array),
+        },
+        metadata: {
+          command: "check local",
+        },
         ok: false,
       });
     } finally {
       await fixture.cleanup();
     }
+  });
+
+  it("returns semantic usage errors for missing schema", async () => {
+    const output = createOutput();
+    const code = await runCli(["check", "local", "--json"], output.io);
+
+    expect(code).toBe(64);
+    expect(JSON.parse(output.stderr)).toMatchObject({
+      error: {
+        code: "ENVY_USAGE_ERROR",
+      },
+      ok: false,
+    });
+  });
+
+  it("returns semantic input errors for missing env files", async () => {
+    const fixture = await createCliFixture();
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "check",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          "missing.env",
+          "--json",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(66);
+      expect(JSON.parse(output.stderr)).toMatchObject({
+        error: {
+          code: "ENVY_INPUT_UNREADABLE",
+        },
+        ok: false,
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("rejects control characters in paths", async () => {
+    const output = createOutput();
+    const code = await runCli(
+      ["check", "local", "--schema", "schema\u0000.mjs", "--json"],
+      output.io,
+    );
+
+    expect(code).toBe(64);
+    expect(JSON.parse(output.stderr)).toMatchObject({
+      error: {
+        code: "ENVY_USAGE_ERROR",
+      },
+      ok: false,
+    });
+  });
+
+  it("describes command contracts for agents", async () => {
+    const output = createOutput();
+    const code = await runCli(["describe"], output.io);
+
+    expect(code).toBe(0);
+    expect(JSON.parse(output.stdout)).toMatchObject({
+      data: {
+        commands: [
+          {
+            name: "check local",
+          },
+        ],
+        exitCodes: {
+          "65": "env validation failed",
+        },
+      },
+      ok: true,
+    });
   });
 });
 

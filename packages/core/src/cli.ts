@@ -1,13 +1,47 @@
 #!/usr/bin/env node
 
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { EnvValidationError } from "./index.js";
 
 type CheckMode = "all" | "client" | "server";
 type OutputFormat = "json" | "text";
+type ExitCode = 0 | 64 | 65 | 66 | 70;
+
+interface ProblemDetails {
+  readonly code: string;
+  readonly detail?: string;
+  readonly docUri: string;
+  readonly fields?: readonly {
+    readonly message: string;
+    readonly path: string;
+  }[];
+  readonly isRetriable: boolean;
+  readonly message: string;
+  readonly suggestions: readonly string[];
+  readonly title: string;
+  readonly type: string;
+}
+
+interface EnvelopeMetadata {
+  readonly command: string;
+  readonly durationMs: number;
+  readonly timestamp: string;
+}
+
+type JsonEnvelope<TData> =
+  | {
+      readonly data: TData;
+      readonly metadata: EnvelopeMetadata;
+      readonly ok: true;
+    }
+  | {
+      readonly error: ProblemDetails;
+      readonly metadata: EnvelopeMetadata;
+      readonly ok: false;
+    };
 
 interface CliIO {
   readonly cwd: string;
@@ -17,6 +51,7 @@ interface CliIO {
 }
 
 interface CheckLocalOptions {
+  readonly describe: boolean;
   readonly exportName?: string;
   readonly format: OutputFormat;
   readonly from: readonly string[];
@@ -28,7 +63,7 @@ interface CheckSuccess {
   readonly keyCount: number;
   readonly keys: readonly string[];
   readonly mode: CheckMode;
-  readonly source: string;
+  readonly sources: readonly string[];
 }
 
 interface CliEnvSchema {
@@ -45,8 +80,10 @@ const helpText = `envy
 
 Usage:
   envy check local --schema <file> [--from <file>] [--mode server|client|all]
+  envy describe
 
 Commands:
+  describe      Print machine-readable command metadata.
   check local   Validate process env or dotenv files against an Envy schema.
 
 Options:
@@ -55,9 +92,19 @@ Options:
   --from <file>         Dotenv file to validate. Repeat to merge several files.
   --mode <mode>         Parse mode: server, client, or all. Default: server.
   --format <format>     Output format: text or json. Default: text.
+  --json                Alias for --format json.
+  --describe            Print command metadata for check local.
   -h, --help            Show help.
   -v, --version         Show version.
 `;
+
+const exitCodes = {
+  data: 65,
+  input: 66,
+  ok: 0,
+  software: 70,
+  usage: 64,
+} as const satisfies Record<string, ExitCode>;
 
 /**
  * Runs the Envy command-line interface.
@@ -79,7 +126,9 @@ export async function runCli(
     stdout: process.stdout,
   },
 ): Promise<number> {
+  const startedAt = Date.now();
   const [command, subcommand, ...rest] = argv;
+  const commandName = [command, subcommand].filter(Boolean).join(" ") || "help";
 
   if (
     !command ||
@@ -88,23 +137,227 @@ export async function runCli(
     command === "-h"
   ) {
     io.stdout.write(helpText);
-    return 0;
+    return exitCodes.ok;
   }
 
   if (command === "--version" || command === "-v") {
     io.stdout.write(`${await readPackageVersion()}\n`);
-    return 0;
+    return exitCodes.ok;
+  }
+
+  if (command === "describe") {
+    writeJson(io.stdout, okEnvelope(describeCli(), commandName, startedAt));
+    return exitCodes.ok;
   }
 
   if (command === "check" && subcommand === "local") {
-    return checkLocal(rest, io);
+    return checkLocal(rest, io, startedAt);
   }
 
-  io.stderr.write(
-    `Unknown command: ${[command, subcommand].filter(Boolean).join(" ")}\n\n`,
-  );
+  const error = createProblem({
+    code: "ENVY_USAGE_UNKNOWN_COMMAND",
+    detail: `Unknown command: ${commandName}`,
+    message: `Unknown command: ${commandName}`,
+    suggestions: [
+      "Run `envy --help` or `envy describe` to inspect supported commands.",
+    ],
+    title: "Unknown command",
+  });
+  io.stderr.write(`${formatTextError(error)}\n\n`);
   io.stderr.write(helpText);
-  return 1;
+  return exitCodes.usage;
+}
+
+export function describeCli(): Record<string, unknown> {
+  return {
+    commands: [
+      {
+        description:
+          "Validate process env or dotenv files against an Envy schema.",
+        name: "check local",
+        options: [
+          {
+            description: "Schema module to import.",
+            name: "--schema",
+            required: true,
+            type: "path",
+          },
+          {
+            description:
+              "Exported schema name. Defaults to default, envSchema, then schema.",
+            name: "--export",
+            required: false,
+            type: "string",
+          },
+          {
+            description: "Dotenv file to validate. May be repeated.",
+            name: "--from",
+            repeatable: true,
+            required: false,
+            type: "path",
+          },
+          {
+            default: "server",
+            enum: ["server", "client", "all"],
+            name: "--mode",
+            required: false,
+            type: "string",
+          },
+          {
+            enum: ["text", "json"],
+            name: "--format",
+            required: false,
+            type: "string",
+          },
+          {
+            description: "Alias for --format json.",
+            name: "--json",
+            required: false,
+            type: "boolean",
+          },
+          {
+            description: "Print command metadata.",
+            name: "--describe",
+            required: false,
+            type: "boolean",
+          },
+        ],
+        output: {
+          jsonEnvelope: {
+            error: "{ ok: false, error: ProblemDetails, metadata }",
+            success: "{ ok: true, data: CheckSuccess, metadata }",
+          },
+        },
+      },
+    ],
+    exitCodes: {
+      "0": "success",
+      "64": "usage error",
+      "65": "env validation failed",
+      "66": "input file could not be read",
+      "70": "internal software error",
+    },
+    name: "envy",
+    version: "0.3.0",
+  };
+}
+
+function okEnvelope<TData>(
+  data: TData,
+  command: string,
+  startedAt: number,
+): JsonEnvelope<TData> {
+  return {
+    data,
+    metadata: createMetadata(command, startedAt),
+    ok: true,
+  };
+}
+
+function errorEnvelope(
+  error: ProblemDetails,
+  command: string,
+  startedAt: number,
+): JsonEnvelope<never> {
+  return {
+    error,
+    metadata: createMetadata(command, startedAt),
+    ok: false,
+  };
+}
+
+function createMetadata(command: string, startedAt: number): EnvelopeMetadata {
+  return {
+    command,
+    durationMs: Date.now() - startedAt,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function writeJson(
+  stream: Pick<typeof process.stdout, "write">,
+  value: JsonEnvelope<unknown>,
+): void {
+  stream.write(`${JSON.stringify(value)}\n`);
+}
+
+function createProblem(input: {
+  readonly code: string;
+  readonly detail?: string;
+  readonly fields?: ProblemDetails["fields"];
+  readonly isRetriable?: boolean;
+  readonly message: string;
+  readonly suggestions?: readonly string[];
+  readonly title: string;
+}): ProblemDetails {
+  return {
+    code: input.code,
+    detail: input.detail,
+    docUri: "https://github.com/howells/envy#cli",
+    fields: input.fields,
+    isRetriable: input.isRetriable ?? false,
+    message: input.message,
+    suggestions: input.suggestions ?? [],
+    title: input.title,
+    type: `https://github.com/howells/envy/errors/${input.code.toLowerCase()}`,
+  };
+}
+
+function formatTextError(error: ProblemDetails): string {
+  const suggestions =
+    error.suggestions.length > 0
+      ? `\n${error.suggestions.map((suggestion) => `- ${suggestion}`).join("\n")}`
+      : "";
+  return `${error.title}: ${error.message}${suggestions}`;
+}
+
+class CliProblem extends Error {
+  readonly exitCode: ExitCode;
+  readonly problem: ProblemDetails;
+
+  constructor(exitCode: ExitCode, problem: ProblemDetails) {
+    super(problem.message);
+    this.name = "CliProblem";
+    this.exitCode = exitCode;
+    this.problem = problem;
+  }
+}
+
+class CliUsageError extends CliProblem {
+  constructor(message: string, suggestions: readonly string[] = []) {
+    super(
+      exitCodes.usage,
+      createProblem({
+        code: "ENVY_USAGE_ERROR",
+        message,
+        suggestions,
+        title: "Usage error",
+      }),
+    );
+  }
+}
+
+class CliInputError extends CliProblem {
+  constructor(message: string, suggestions: readonly string[] = []) {
+    super(
+      exitCodes.input,
+      createProblem({
+        code: "ENVY_INPUT_UNREADABLE",
+        message,
+        suggestions,
+        title: "Input unreadable",
+      }),
+    );
+  }
+}
+
+function toPathUsageError(kind: string, value: string): CliUsageError {
+  return new CliUsageError(
+    `${kind} contains unsupported control characters: ${JSON.stringify(value)}.`,
+    [
+      "Pass a normal filesystem path without NUL bytes or terminal control characters.",
+    ],
+  );
 }
 
 /**
@@ -141,20 +394,65 @@ export function parseDotenv(contents: string): Record<string, string> {
   return values;
 }
 
-async function checkLocal(args: readonly string[], io: CliIO): Promise<number> {
+async function checkLocal(
+  args: readonly string[],
+  io: CliIO,
+  startedAt: number,
+): Promise<number> {
   let options: CheckLocalOptions | Error;
   try {
     options = parseCheckLocalOptions(args);
   } catch (error) {
-    io.stderr.write(
-      `${error instanceof Error ? error.message : String(error)}\n`,
-    );
-    return 1;
+    const format = wantsJson(args) ? "json" : "text";
+    const problem =
+      error instanceof CliProblem
+        ? error.problem
+        : createProblem({
+            code: "ENVY_USAGE_ERROR",
+            message: error instanceof Error ? error.message : String(error),
+            title: "Usage error",
+          });
+    if (format === "json") {
+      writeJson(io.stderr, errorEnvelope(problem, "check local", startedAt));
+    } else {
+      io.stderr.write(`${formatTextError(problem)}\n`);
+    }
+    return error instanceof CliProblem ? error.exitCode : exitCodes.usage;
+  }
+
+  if (options instanceof CliProblem) {
+    if (wantsJson(args)) {
+      writeJson(
+        io.stderr,
+        errorEnvelope(options.problem, "check local", startedAt),
+      );
+    } else {
+      io.stderr.write(`${formatTextError(options.problem)}\n`);
+    }
+    return options.exitCode;
   }
 
   if (options instanceof Error) {
-    io.stderr.write(`${options.message}\n`);
-    return 1;
+    const format = wantsJson(args) ? "json" : "text";
+    const problem = createProblem({
+      code: "ENVY_USAGE_ERROR",
+      message: options.message,
+      title: "Usage error",
+    });
+    if (format === "json") {
+      writeJson(io.stderr, errorEnvelope(problem, "check local", startedAt));
+    } else {
+      io.stderr.write(`${formatTextError(problem)}\n`);
+    }
+    return exitCodes.usage;
+  }
+
+  if (options.describe) {
+    writeJson(
+      io.stdout,
+      okEnvelope(describeCli(), "check local --describe", startedAt),
+    );
+    return exitCodes.ok;
   }
 
   try {
@@ -165,20 +463,20 @@ async function checkLocal(args: readonly string[], io: CliIO): Promise<number> {
       keyCount: Object.keys(parsed).length,
       keys: Object.keys(parsed).sort(),
       mode: options.mode,
-      source: options.from.length > 0 ? options.from.join(", ") : "process.env",
+      sources: options.from.length > 0 ? options.from : ["process.env"],
     };
 
     if (options.format === "json") {
-      io.stdout.write(`${JSON.stringify({ ok: true, ...success }, null, 2)}\n`);
-      return 0;
+      writeJson(io.stdout, okEnvelope(success, "check local", startedAt));
+      return exitCodes.ok;
     }
 
     io.stdout.write(
-      `Envy local check passed: ${success.keyCount} variable(s) validated from ${success.source}.\n`,
+      `Envy local check passed: ${success.keyCount} variable(s) validated from ${success.sources.join(", ")}.\n`,
     );
-    return 0;
+    return exitCodes.ok;
   } catch (error) {
-    return reportCheckError(error, options.format, io);
+    return reportCheckError(error, options.format, io, startedAt);
   }
 }
 
@@ -186,6 +484,7 @@ function parseCheckLocalOptions(
   args: readonly string[],
 ): CheckLocalOptions | Error {
   const from: string[] = [];
+  let describe = false;
   let exportName: string | undefined;
   let format: OutputFormat = "text";
   let mode: CheckMode = "server";
@@ -199,8 +498,19 @@ function parseCheckLocalOptions(
       return new Error(helpText);
     }
 
+    if (arg === "--describe") {
+      describe = true;
+      continue;
+    }
+
+    if (arg === "--json") {
+      format = "json";
+      continue;
+    }
+
     if (arg === "--schema") {
       schemaPath = readFlagValue(args, index, arg);
+      assertSafePath("Schema path", schemaPath);
       index += 1;
       continue;
     }
@@ -212,7 +522,9 @@ function parseCheckLocalOptions(
     }
 
     if (arg === "--from") {
-      from.push(readFlagValue(args, index, arg));
+      const fromPath = readFlagValue(args, index, arg);
+      assertSafePath("Env file path", fromPath);
+      from.push(fromPath);
       index += 1;
       continue;
     }
@@ -243,16 +555,33 @@ function parseCheckLocalOptions(
   }
 
   if (!schemaPath) {
-    return new Error("Missing required --schema <file> option.");
+    if (!describe) {
+      return new CliUsageError("Missing required --schema <file> option.", [
+        "Run `envy check local --schema ./src/env/schema.ts --from .env.production`.",
+      ]);
+    }
+
+    schemaPath = "";
   }
 
   return {
+    describe,
     exportName,
     format,
     from,
     mode,
     schemaPath,
   };
+}
+
+function wantsJson(args: readonly string[]): boolean {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--json") return true;
+    if (arg === "--format" && args[index + 1] === "json") return true;
+  }
+
+  return false;
 }
 
 function readFlagValue(
@@ -267,11 +596,34 @@ function readFlagValue(
   return value;
 }
 
+function assertSafePath(kind: string, value: string): void {
+  if (hasControlCharacter(value)) {
+    throw toPathUsageError(kind, value);
+  }
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 31 || code === 127) return true;
+  }
+
+  return false;
+}
+
 async function importEnvSchema(
   options: CheckLocalOptions,
   cwd: string,
 ): Promise<CliEnvSchema> {
   const schemaFile = resolve(cwd, options.schemaPath);
+  try {
+    await access(schemaFile);
+  } catch {
+    throw new CliInputError(`Schema file could not be read: ${schemaFile}`, [
+      "Check the --schema path and make sure the file exists.",
+    ]);
+  }
+
   const schemaUrl = `${pathToFileURL(schemaFile).href}?envy=${Date.now()}`;
   const moduleExports = (await import(schemaUrl)) as Record<string, unknown>;
   const schema = options.exportName
@@ -284,8 +636,9 @@ async function importEnvSchema(
     const exportHint = options.exportName
       ? `export named ${options.exportName}`
       : "default export, envSchema export, or schema export";
-    throw new Error(
+    throw new CliUsageError(
       `Schema module must provide an Envy schema as ${exportHint}.`,
+      ["Export the result of defineEnv(...) from the schema module."],
     );
   }
 
@@ -302,7 +655,15 @@ async function readInput(
 
   const input: Record<string, string> = {};
   for (const fromPath of options.from) {
-    const fileContents = await readFile(resolve(io.cwd, fromPath), "utf8");
+    const resolvedPath = resolve(io.cwd, fromPath);
+    let fileContents: string;
+    try {
+      fileContents = await readFile(resolvedPath, "utf8");
+    } catch {
+      throw new CliInputError(`Env file could not be read: ${resolvedPath}`, [
+        "Check the --from path and make sure the file exists.",
+      ]);
+    }
     Object.assign(input, parseDotenv(fileContents));
   }
   return input;
@@ -322,13 +683,38 @@ function reportCheckError(
   error: unknown,
   format: OutputFormat,
   io: CliIO,
+  startedAt: number,
 ): number {
   if (error instanceof EnvValidationError) {
+    const problem = createProblem({
+      code: "ENVY_VALIDATION_FAILED",
+      fields: error.issues.map((issue) => ({
+        message: issue.message,
+        path:
+          issue.path.length > 0
+            ? `${issue.key}.${issue.path.join(".")}`
+            : issue.key,
+      })),
+      message: `Environment validation failed with ${error.issues.length} issue(s).`,
+      suggestions: [
+        "Set every required schema variable in the checked env source.",
+        "Use `--mode client` when validating only public client variables.",
+      ],
+      title: "Environment validation failed",
+    });
     if (format === "json") {
-      io.stdout.write(
-        `${JSON.stringify({ issues: error.issues, ok: false }, null, 2)}\n`,
+      writeJson(
+        io.stderr,
+        errorEnvelope(
+          {
+            ...problem,
+            detail: JSON.stringify(error.issues),
+          },
+          "check local",
+          startedAt,
+        ),
       );
-      return 1;
+      return exitCodes.data;
     }
 
     io.stderr.write(
@@ -337,19 +723,37 @@ function reportCheckError(
     for (const issue of error.issues) {
       io.stderr.write(`- ${issue.key} [${issue.group}]: ${issue.message}\n`);
     }
-    return 1;
+    return exitCodes.data;
+  }
+
+  if (error instanceof CliProblem) {
+    if (format === "json") {
+      writeJson(
+        io.stderr,
+        errorEnvelope(error.problem, "check local", startedAt),
+      );
+    } else {
+      io.stderr.write(`${formatTextError(error.problem)}\n`);
+    }
+    return error.exitCode;
   }
 
   const message = error instanceof Error ? error.message : String(error);
+  const problem = createProblem({
+    code: "ENVY_INTERNAL_ERROR",
+    message,
+    suggestions: [
+      "Re-run with the same inputs. If it persists, open an issue.",
+    ],
+    title: "Internal error",
+  });
   if (format === "json") {
-    io.stdout.write(
-      `${JSON.stringify({ error: message, ok: false }, null, 2)}\n`,
-    );
-    return 1;
+    writeJson(io.stderr, errorEnvelope(problem, "check local", startedAt));
+    return exitCodes.software;
   }
 
-  io.stderr.write(`${message}\n`);
-  return 1;
+  io.stderr.write(`${formatTextError(problem)}\n`);
+  return exitCodes.software;
 }
 
 function parseDotenvValue(value: string): string {
