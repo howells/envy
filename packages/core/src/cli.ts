@@ -238,7 +238,7 @@ export function describeCli(): Record<string, unknown> {
       "70": "internal software error",
     },
     name: "envy",
-    version: "0.3.0",
+    version: "0.3.2",
   };
 }
 
