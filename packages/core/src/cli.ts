@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { EnvValidationError } from "./index.js";
 
 type CheckMode = "all" | "client" | "server";
@@ -400,9 +401,16 @@ async function readPackageVersion(): Promise<string> {
   }
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
+function isDirectCliExecution(): boolean {
+  if (!process.argv[1]) return false;
+
+  try {
+    return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectCliExecution()) {
   process.exitCode = await runCli();
 }
