@@ -2,7 +2,7 @@
 
 Vercel deploy adapter for Envy.
 
-This package checks and safely pushes schema-declared variables for a Vercel project.
+This package checks and pushes schema-declared variables for a Vercel project.
 
 Usage:
 

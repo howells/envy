@@ -1,6 +1,6 @@
 # Testing Guide
 
-Envy should make tests boring. The key design choice is that validation is explicit: importing the schema does not read or validate `process.env`.
+Envy keeps env tests local. Importing the schema does not read or validate `process.env`.
 
 ## Test With Plain Objects
 
@@ -23,13 +23,13 @@ describe("env", () => {
 });
 ```
 
-This avoids import-order problems and global state leaks.
+This avoids import-order problems and shared global state.
 
 ## Avoid Hidden `NODE_ENV=test` Behavior
 
-Normal parsing should not weaken validation just because `NODE_ENV` is `test`.
+Normal parsing does not weaken validation because `NODE_ENV` is `test`.
 
-If a test needs a lighter set of values, pass that lighter set explicitly through a schema that allows it.
+If a test needs fewer values, pass those values through a schema that allows them.
 
 ## Mutable Test State
 
@@ -69,7 +69,7 @@ Accessing a missing required key still throws.
 
 ## What To Test
 
-Project env tests should usually cover:
+Project env tests usually cover:
 
 - every required key can parse from a realistic fixture
 - optional keys are `undefined` when absent

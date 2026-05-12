@@ -120,7 +120,7 @@ import { railway } from "@howells/envy/adapters/railway";
 
 ## Output Rules
 
-CLI output should:
+CLI output:
 
 - show key names
 - never show secret values

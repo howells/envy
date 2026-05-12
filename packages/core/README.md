@@ -2,7 +2,7 @@
 
 Zod-powered environment parsing for TypeScript applications.
 
-Envy gives you a typed env object without import-time validation. Define a grouped schema, parse an explicit input object, and keep application code away from raw `process.env`.
+Envy gives you a typed env object without import-time validation. Define a grouped schema, parse an input object, and keep application code away from raw `process.env`.
 
 ## Install
 
@@ -55,7 +55,7 @@ export const env = envSchema.parseServer(process.env);
 ## Groups
 
 - `server`: private values required by server-side code
-- `public`: client-safe values, required by default and prefix-enforced
+- `public`: client-visible values, required by default and prefix-enforced
 - `system`: runtime or provider-owned values such as `NODE_ENV` and `CI`
 - `optional`: missing values are allowed, present values are validated
 
@@ -86,7 +86,7 @@ defineEnv(
 
 ## Parsing
 
-Parsing is explicit. Importing a schema does not read or validate `process.env`.
+Importing a schema does not read or validate `process.env`.
 
 ```ts
 const env = envSchema.parse(process.env);
@@ -184,7 +184,7 @@ Lazy mode validates declared keys when they are accessed.
 const env = envSchema.lazy(process.env);
 ```
 
-Prefer explicit parsing when you can. Use `lazy()` for awkward framework phases, scripts, or tests where validating every declared key up front is not viable.
+Prefer full parsing when you can. Use `lazy()` for framework phases, scripts, or tests where validating every declared key up front is not viable.
 
 ## CLI
 
@@ -271,11 +271,11 @@ import { vercel } from "@howells/envy/adapters/vercel";
 import { railway } from "@howells/envy/adapters/railway";
 ```
 
-- `@howells/envy/dotenv`: explicit `.env` loading without shelling out
+- `@howells/envy/dotenv`: `.env` loading without shelling out
 - `@howells/envy/next`: generated Next client/server env boundaries
 - `@howells/envy/lint`: Oxlint, ESLint, and Biome config helpers
-- `@howells/envy/adapters/vercel`: Vercel env presence checks and safe pushes
-- `@howells/envy/adapters/railway`: Railway env presence checks and safe pushes
+- `@howells/envy/adapters/vercel`: Vercel env presence checks and API pushes
+- `@howells/envy/adapters/railway`: Railway env presence checks and API pushes
 
 ## Errors
 
@@ -312,7 +312,7 @@ const env = envSchema.parseServer({
 });
 ```
 
-This avoids import-order problems and makes each test's env state explicit.
+This avoids import-order problems and keeps env state local to the test.
 
 ## Repository
 

@@ -82,7 +82,7 @@ system: {
 }
 ```
 
-These values parse normally but are intended to be excluded from deploy pushes.
+These values parse normally and are excluded from deploy pushes by default.
 
 ### `optional`
 
@@ -192,7 +192,7 @@ const env = envSchema.parse({
 
 `RANDOM_EXTRA` is stripped from the returned object.
 
-CLI checks should still report undeclared keys in env files. Runtime parsing keeps application code focused on the declared typed surface.
+CLI checks report undeclared keys in env files. Runtime parsing keeps application code focused on the declared typed surface.
 
 ## Errors
 

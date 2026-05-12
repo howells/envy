@@ -65,7 +65,7 @@ Next.js expects public env access to be statically visible:
 process.env.NEXT_PUBLIC_APP_URL
 ```
 
-A dynamic loop over schema keys is tempting, but it risks values not being inlined into the client bundle. `syncNextEnv()` generates explicit mappings instead of relying on runtime reflection.
+A dynamic loop over schema keys risks values not being inlined into the client bundle. `syncNextEnv()` generates literal mappings instead of relying on runtime reflection.
 
 ## Codegen
 
@@ -80,7 +80,7 @@ syncNextEnv(envSchema, {
 });
 ```
 
-Run this when public schema keys change so the client mapping stays explicit.
+Run this when public schema keys change.
 
 ## Import Rules
 
@@ -96,4 +96,4 @@ Use client env only from client-safe code:
 import { env } from "@/env/client";
 ```
 
-Lint integration should forbid raw `process.env` outside the env files.
+Lint integration forbids raw `process.env` outside the env files.

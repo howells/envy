@@ -1,6 +1,6 @@
 # Lint Guide
 
-Typed env only works if application code actually uses it. Envy's lint story is designed to enforce this:
+Typed env only works if application code uses the typed module:
 
 ```ts
 // Prefer this
@@ -16,7 +16,7 @@ const url = process.env.DATABASE_URL;
 
 ## Preferred V1 Path: Oxlint
 
-Oxlint has a native `node/no-process-env` rule. Envy uses that first before inventing a custom linter.
+Oxlint has a native `node/no-process-env` rule. Envy uses that instead of maintaining a custom parser for the common case.
 
 ```jsonc
 {
@@ -36,7 +36,7 @@ Oxlint has a native `node/no-process-env` rule. Envy uses that first before inve
 
 ## Biome
 
-Biome can remain the formatter and general linter. Envy provides a small Biome companion config for generated env files, while direct `process.env` enforcement should run through Oxlint or ESLint.
+Biome can remain the formatter and general linter. Envy provides a small Biome companion config for generated env files. Direct `process.env` enforcement runs through Oxlint or ESLint.
 
 The expected setup for projects that use Biome today is:
 
@@ -59,11 +59,11 @@ The lint helpers cover:
 
 ## Allowances
 
-Direct `process.env` should be allowed in:
+Direct `process.env` belongs in:
 
 - env definition files
 - generated Next client env mapping
 - narrow system keys such as `NODE_ENV` and `CI`
 - migration escape hatches with an inline reason
 
-Every other direct env read should move through the typed env module.
+Every other env read goes through the typed env module.

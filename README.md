@@ -1,14 +1,14 @@
 # Envy
 
-Zod-powered environment parsing for TypeScript apps, with an installable CLI for local preflight checks, lint enforcement helpers, Next.js env generation, deploy provider checks, and safe provider pushes.
+Zod-powered environment parsing for TypeScript apps, with a CLI for local checks, lint helpers, Next.js env generation, and Vercel/Railway env checks and pushes.
 
-Envy starts from a simple rule: application code should import a typed env object, not read `process.env` directly. Validation is explicit, tests stay ergonomic, and deployment checks should catch missing or misspelled variables before a deploy starts.
+Application code imports a typed env object instead of reading `process.env` directly. Validation runs when you ask for it, tests can pass plain objects, and deploy checks catch missing or misspelled variables before a deploy starts.
 
 `@howells/envy` includes the parser, the `envy check local` CLI, dotenv helpers, Next.js codegen helpers, lint helpers, and Vercel/Railway provider adapters.
 
 ## Why
 
-Env bugs are usually boring and expensive:
+Env bugs are usually small mistakes with expensive timing:
 
 - a required secret is missing in production
 - a key is misspelled in `.env.production`
@@ -17,7 +17,7 @@ Env bugs are usually boring and expensive:
 - deployment scripts corrupt secrets with shell quoting or trailing newlines
 - application code quietly bypasses the typed env module with `process.env`
 
-Envy is designed to make the happy path explicit:
+The schema is the source of truth:
 
 ```ts
 import { defineEnv } from "@howells/envy";
@@ -78,7 +78,7 @@ pnpm build
 
 ### Grouped Schema
 
-Envy uses grouped authoring because the group tells tools how each key should behave:
+Groups tell the parser and helper tools how each key behaves:
 
 ```ts
 defineEnv({
@@ -98,7 +98,7 @@ defineEnv({
 ```
 
 - `server`: private, required by default
-- `public`: client-safe, required by default, prefix-enforced
+- `public`: client-visible, required by default, prefix-enforced
 - `system`: runtime/provider-owned values, excluded from deploy pushes by default
 - `optional`: missing is allowed, present values are validated
 
@@ -106,7 +106,7 @@ The default public prefix is `NEXT_PUBLIC_`.
 
 ### Explicit Parsing
 
-Parsing is explicit. Importing a schema does not validate the process environment.
+Importing a schema does not validate the process environment.
 
 ```ts
 const env = envSchema.parse(process.env);
@@ -143,7 +143,7 @@ export const env = envSchema.parseClient({
 
 ### Lazy Access
 
-Lazy access is an escape hatch for awkward runtimes and tests:
+Lazy access is for runtimes and tests that cannot validate every key up front:
 
 ```ts
 const env = envSchema.lazy(process.env);

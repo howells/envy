@@ -1,8 +1,8 @@
 # Deploy Guide
 
-Deploy support is available through provider adapters.
+Deploy checks run through provider adapters.
 
-The goal is to catch env drift before a deploy starts, then safely push schema-declared variables without shell quoting mistakes.
+They catch env drift before a deploy starts and push schema-declared variables without shell quoting.
 
 ## Providers
 
@@ -27,14 +27,14 @@ const result = await vercel({ project: "web" }).check({
 });
 ```
 
-Checks should verify presence of deploy-relevant variables:
+Checks verify presence of deploy-relevant variables:
 
 - include `server`
 - include `public`
 - include `optional` only when explicitly marked deploy-required
 - exclude `system` by default
 
-Provider APIs may not expose secret values. Presence checks should still work. Value validation should run only when values are safely readable.
+Provider APIs may not expose secret values. Presence checks still work. Value validation runs only when the provider returns readable values.
 
 Example report:
 
@@ -47,7 +47,7 @@ Vercel production
 - OPENAI_API_KEY value is not readable, schema format not validated
 ```
 
-## Safe Push
+## Push
 
 ```ts
 import { loadDotenv } from "@howells/envy/dotenv";
@@ -70,10 +70,9 @@ await railway({
 });
 ```
 
-Push should:
+Pushes:
 
 - parse `.env` with a real parser
-- use provider API first
 - use provider APIs directly
 - push schema-declared keys only
 - fail on undeclared keys by default
@@ -91,7 +90,7 @@ Secrets are easy to corrupt with shell commands:
 echo "$SECRET" | vercel env add SECRET production
 ```
 
-This can accidentally add trailing newlines or mishandle multiline values. Envy pushes exact parsed values through structured provider APIs.
+That can add trailing newlines or mishandle multiline values. Envy sends parsed values through provider APIs.
 
 ## Local Checks
 
@@ -105,7 +104,7 @@ By default this validates the file alone and fails if:
 - a key is undeclared
 - a readable value fails its Zod schema
 
-Merging with the current process environment should be explicit:
+Merging with the current process environment is explicit:
 
 ```bash
 envy check local --from .env.production --with-process-env
