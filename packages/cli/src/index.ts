@@ -1,8 +1,9 @@
 /**
  * Public command metadata for the `envy` binary.
  *
- * The executable is still a scaffold, but this registry gives docs and tests a
- * single source of truth for the command surface Envy intends to support.
+ * The installable binary now ships from `@howells/envy`. This private workspace
+ * package keeps command metadata available while longer-lived CLI packaging
+ * decisions settle.
  *
  * @module
  */
@@ -23,38 +24,12 @@ export interface CliCommand {
 /**
  * Public command registry used by help output and future command dispatch.
  *
- * The registry focuses on user-level workflows: check local files, check remote
- * provider state, push only schema-declared variables, and initialize generated
- * Next/lint integrations.
+ * The implemented command validates local env state before a deployment or CI
+ * job proceeds.
  */
 export const cliCommands: readonly CliCommand[] = [
   {
     name: "check local",
     summary: "Validate a local env source against the schema.",
-  },
-  {
-    name: "check vercel",
-    summary: "Check Vercel env presence for a target environment.",
-  },
-  {
-    name: "check railway",
-    summary: "Check Railway env presence for a service environment.",
-  },
-  {
-    name: "push vercel",
-    summary: "Safely push schema-declared env vars to Vercel.",
-  },
-  {
-    name: "push railway",
-    summary: "Safely push schema-declared env vars to Railway.",
-  },
-  { name: "init next", summary: "Create the default Next.js env file layout." },
-  {
-    name: "init lint",
-    summary: "Create Oxlint, Biome, or ESLint env enforcement config.",
-  },
-  {
-    name: "sync next",
-    summary: "Regenerate explicit Next.js public env mapping.",
   },
 ];

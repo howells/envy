@@ -7,7 +7,21 @@ Envy gives you a typed env object without import-time validation. Define a group
 ## Install
 
 ```bash
+npm install @howells/envy zod
+```
+
+Or with pnpm:
+
+```bash
 pnpm add @howells/envy zod
+```
+
+`zod` is a peer dependency because Envy uses your project's Zod version for schemas and inference.
+
+The package also installs the `envy` binary:
+
+```bash
+npx envy --help
 ```
 
 ## Quick Start
@@ -171,6 +185,28 @@ const env = envSchema.lazy(process.env);
 ```
 
 Prefer explicit parsing when you can. Use `lazy()` for awkward framework phases, scripts, or tests where validating every declared key up front is not viable.
+
+## CLI
+
+Use the CLI to validate a local env file before CI or deployment:
+
+```bash
+npx envy check local --schema ./src/env/schema.ts --from .env.production
+```
+
+Your schema module can export the schema as `default`, `envSchema`, or `schema`.
+Use `--export <name>` when you prefer a different named export.
+
+```bash
+npx envy check local \
+  --schema ./src/env/schema.ts \
+  --export appEnv \
+  --from .env.production \
+  --mode all
+```
+
+Omit `--from` to validate the current process environment. Use `--format json`
+for CI output that another tool can parse.
 
 ## Metadata
 

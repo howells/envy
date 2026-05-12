@@ -2,17 +2,14 @@
 
 Command-line interface for Envy.
 
-This package is scaffolded. It currently exposes the planned command registry and a placeholder `envy` binary.
+The installable `envy` binary ships with `@howells/envy`.
 
-Planned command families:
+```bash
+npm install @howells/envy zod
+npx envy check local --schema ./src/env/schema.ts --from .env.production
+```
 
-- `envy check local`
-- `envy check vercel`
-- `envy check railway`
-- `envy push vercel`
-- `envy push railway`
-- `envy init next`
-- `envy sync next`
-- `envy init lint`
+This private workspace package delegates to the published CLI entry point while
+the monorepo keeps future CLI-related packages separate.
 
 See [CLI Guide](../../docs/cli.md).

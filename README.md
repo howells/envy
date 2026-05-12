@@ -1,10 +1,10 @@
 # Envy
 
-Zod-powered environment parsing for TypeScript apps, with a path toward lint enforcement, Next.js env generation, deploy preflight checks, and safe provider pushes.
+Zod-powered environment parsing for TypeScript apps, with an installable CLI for local preflight checks and a path toward lint enforcement, Next.js env generation, deploy provider checks, and safe provider pushes.
 
 Envy starts from a simple rule: application code should import a typed env object, not read `process.env` directly. Validation is explicit, tests stay ergonomic, and deployment checks should catch missing or misspelled variables before a deploy starts.
 
-> Current status: `@howells/envy` is implemented and tested. CLI, provider adapters, Next codegen, dotenv loading, and lint helpers are scaffolded with documented public surfaces and will be filled in next.
+> Current status: `@howells/envy` includes the parser and an installable `envy check local` CLI. Provider adapters, Next codegen, dotenv loading helpers, and lint helpers are still separate scaffold packages.
 
 ## Why
 
@@ -47,10 +47,23 @@ export const env = envSchema.parseServer(process.env);
 
 ## Install
 
-This repository is still local scaffold work. Once published, the core install shape should be:
+The core parser is published on npm as `@howells/envy`. Install it with Zod:
+
+```bash
+npm install @howells/envy zod
+```
+
+That also installs the `envy` binary:
+
+```bash
+npx envy --help
+```
+
+Or with pnpm:
 
 ```bash
 pnpm add @howells/envy zod
+pnpm exec envy --help
 ```
 
 For this workspace:
@@ -165,21 +178,24 @@ store.reset();
 
 See [Testing Guide](./docs/testing.md).
 
-## Planned CLI
+## CLI
 
-The CLI command surface is scaffolded:
+The published package includes a working local preflight command:
 
 ```bash
-envy check local --from .env.production
-envy check vercel --project web --environment production
-envy check railway --project sorrel --service web --environment production
+npx envy check local --schema ./src/env/schema.ts --from .env.production
+```
 
-envy push vercel --from .env.production --environment production --dry-run
-envy push railway --from .env.production --service web --environment production --dry-run
+Omit `--from` to validate the current process environment:
 
-envy init next
-envy sync next
-envy init lint --target oxlint
+```bash
+npx envy check local --schema ./src/env/schema.ts
+```
+
+Use `--mode server`, `--mode client`, or `--mode all` to choose the parser method. The default is `server`.
+
+```bash
+npx envy check local --schema ./src/env/schema.ts --from .env.production --mode all
 ```
 
 See [CLI Guide](./docs/cli.md), [Deploy Guide](./docs/deploy.md), and [Lint Guide](./docs/lint.md).

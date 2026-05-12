@@ -1,10 +1,20 @@
 # CLI Guide
 
-The CLI is scaffolded but not implemented yet. This guide records the planned command surface and expected behavior.
+The `envy` CLI ships with `@howells/envy`.
+
+```bash
+npm install @howells/envy zod
+npx envy --help
+```
+
+It currently provides a working local preflight check for validating
+`process.env` or dotenv files against an Envy schema before CI or deployment
+continues.
 
 ## Config
 
-`envy.config.ts` should be optional but recommended.
+`envy.config.ts` is reserved for future commands. The implemented local check is
+explicit and takes `--schema`.
 
 ```ts
 import { defineConfig } from "@envy/config";
@@ -16,7 +26,7 @@ export default defineConfig({
 });
 ```
 
-Every command should also accept `--schema` for monorepos and one-off checks.
+Use a schema path for monorepos and one-off checks.
 
 ```bash
 envy check local --schema apps/web/src/env/schema.ts --from apps/web/.env.production
@@ -29,80 +39,66 @@ envy check local --schema apps/web/src/env/schema.ts --from apps/web/.env.produc
 Validate a local env source against the schema.
 
 ```bash
-envy check local --from .env.production
-envy check local --from .env.production --with-process-env
-envy check local --from process
+npx envy check local --schema ./src/env/schema.ts --from .env.production
+npx envy check local --schema ./src/env/schema.ts
+npx envy check local --schema ./src/env/schema.ts --from .env --from .env.local
 ```
 
-Default behavior should be strict about undeclared keys.
+The schema module may export the schema as:
 
-### `envy check vercel`
+- `default`
+- `envSchema`
+- `schema`
 
-Check Vercel env presence for a target environment.
+Use `--export <name>` for any other export:
 
 ```bash
-envy check vercel --project web --environment production
+npx envy check local --schema ./src/env/schema.ts --export appEnv
 ```
 
-### `envy check railway`
+Modes map directly to parser methods:
 
-Check Railway env presence for a service environment.
+- `--mode server`: `schema.parseServer(input)`, the default
+- `--mode client`: `schema.parseClient(input)`
+- `--mode all`: `schema.parse(input)`
 
 ```bash
-envy check railway --project sorrel --service web --environment production
+npx envy check local --schema ./src/env/schema.ts --from .env.production --mode all
 ```
 
-### `envy push vercel`
-
-Safely push schema-declared values to Vercel.
+JSON output is available for CI:
 
 ```bash
-envy push vercel --from .env.production --environment production --dry-run
-envy push vercel --from .env.production --environment production --yes
+npx envy check local --schema ./src/env/schema.ts --from .env.production --format json
 ```
 
-### `envy push railway`
+When `--from` is omitted, the CLI validates the current process environment.
+When one or more `--from` files are provided, files are parsed and merged in
+order without mutating `process.env`.
 
-Safely push schema-declared values to Railway.
+The dotenv parser supports common syntax: comments, blank lines, `export KEY=`,
+single-quoted values, double-quoted values, inline comments after unquoted
+values, and empty values. It does not append newlines to secrets.
+
+## Future Commands
+
+Provider checks, safe provider pushes, Next codegen, and lint initialization are
+still separate implementation tracks:
 
 ```bash
-envy push railway --from .env.production --service web --environment production --dry-run
-envy push railway --from .env.production --service web --environment production --yes
-```
-
-### `envy init next`
-
-Create the recommended Next.js env layout.
-
-```bash
+envy check vercel
+envy check railway
+envy push vercel
+envy push railway
 envy init next
-```
-
-### `envy sync next`
-
-Regenerate explicit public env mapping.
-
-```bash
 envy sync next
-```
-
-### `envy init lint`
-
-Create env enforcement config.
-
-```bash
-envy init lint --target oxlint
-envy init lint --target biome
-envy init lint --target eslint
+envy init lint
 ```
 
 ## Exit Codes
 
-Planned shape:
-
 - `0`: success
-- `1`: validation, config, missing env, or provider check failure
-- `2`: command usage error
+- `1`: validation failure, config error, missing file, unknown command, or usage error
 
 ## Output Rules
 
@@ -110,5 +106,5 @@ CLI output should:
 
 - show key names
 - never show secret values
-- make skipped, created, overwritten, and missing variables visually distinct
 - include enough context to fix the problem without opening provider dashboards
+- support JSON output for CI
