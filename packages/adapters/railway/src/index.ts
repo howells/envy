@@ -1,38 +1,89 @@
+/**
+ * Configuration for Railway env checks and pushes.
+ */
 export interface RailwayAdapterOptions {
+  /** Railway environment id. */
   readonly environmentId: string;
+  /** Fetch implementation used for API calls. Defaults to global `fetch`. */
   readonly fetch?: typeof fetch;
+  /** Railway project id. */
   readonly projectId: string;
+  /** Railway service id. */
   readonly serviceId: string;
+  /** Railway API token. Defaults to `RAILWAY_TOKEN`. */
   readonly token?: string;
 }
 
+/**
+ * Request for checking that schema-declared keys exist in Railway.
+ */
 export interface RailwayCheckRequest {
+  /** Schema-declared keys that must exist remotely. */
   readonly keys: readonly string[];
 }
 
+/**
+ * Request for pushing schema-declared values to Railway.
+ */
 export interface RailwayPushRequest {
+  /** Reports planned writes without changing remote state. */
   readonly dryRun?: boolean;
+  /** Allows replacing existing values. Defaults to false. */
   readonly overwrite?: boolean;
+  /** Schema-declared values to write. */
   readonly values: Readonly<Record<string, string>>;
 }
 
+/**
+ * Structured result returned by provider env checks.
+ */
 export interface ProviderCheckResult {
+  /** Variables present in the provider. */
   readonly present: readonly string[];
+  /** Variables missing from the provider. */
   readonly missing: readonly string[];
 }
 
+/**
+ * Structured result returned by Railway env pushes.
+ */
 export interface ProviderPushResult {
+  /** Variables created or updated by the push. */
   readonly written: readonly string[];
+  /** Variables skipped because they already existed. */
   readonly skipped: readonly string[];
+  /** Whether remote state was left unchanged. */
   readonly dryRun: boolean;
 }
 
+/**
+ * Railway deploy adapter returned by {@link railway}.
+ */
 export interface RailwayDeployAdapter {
+  /** Provider name for structured output. */
   readonly name: "railway";
+  /**
+   * Checks that schema-declared keys exist remotely.
+   *
+   * @param request - Required key names.
+   * @returns Present and missing key names.
+   */
   check(request: RailwayCheckRequest): Promise<ProviderCheckResult>;
+  /**
+   * Pushes schema-declared values without printing secret values.
+   *
+   * @param request - Values to write and push behavior.
+   * @returns Written, skipped, and dry-run status.
+   */
   push(request: RailwayPushRequest): Promise<ProviderPushResult>;
 }
 
+/**
+ * Creates a Railway deploy adapter.
+ *
+ * @param options - Project, service, environment, token, and fetch settings.
+ * @returns Railway deploy adapter.
+ */
 export function railway(options: RailwayAdapterOptions): RailwayDeployAdapter {
   const fetcher = options.fetch ?? fetch;
 

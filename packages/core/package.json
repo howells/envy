@@ -1,6 +1,6 @@
 {
   "name": "@howells/envy",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "type": "module",
   "bin": {
     "envy": "dist/cli.js"
@@ -12,6 +12,7 @@
       "require": "./dist/index.cjs"
     },
     "./cli": {
+      "types": "./src/cli.d.ts",
       "import": "./dist/cli.js"
     },
     "./dotenv": {
@@ -43,6 +44,7 @@
   "files": [
     "dist",
     "AGENTS.md",
+    "src/cli.d.ts",
     "src/cli.ts",
     "src/index.ts",
     "README.md"

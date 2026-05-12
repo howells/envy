@@ -1,38 +1,87 @@
+/**
+ * Vercel environment targets supported by the Vercel env API.
+ */
 export type VercelEnvironment = "development" | "preview" | "production";
 
+/**
+ * Configuration for Vercel env checks and pushes.
+ */
 export interface VercelAdapterOptions {
+  /** Fetch implementation used for API calls. Defaults to global `fetch`. */
   readonly fetch?: typeof fetch;
+  /** Vercel project id or name. */
   readonly project: string;
+  /** Optional Vercel team id. */
   readonly teamId?: string;
+  /** Vercel API token. Defaults to `VERCEL_TOKEN`. */
   readonly token?: string;
 }
 
+/**
+ * Request for checking that schema-declared keys exist in Vercel.
+ */
 export interface VercelCheckRequest {
+  /** Target Vercel environment. */
   readonly environment: VercelEnvironment;
+  /** Schema-declared keys that must exist remotely. */
   readonly keys: readonly string[];
 }
 
+/**
+ * Request for pushing schema-declared values to Vercel.
+ */
 export interface VercelPushRequest {
+  /** Reports planned writes without changing remote state. */
   readonly dryRun?: boolean;
+  /** Target Vercel environment. */
   readonly environment: VercelEnvironment;
+  /** Allows replacing existing values. Currently blocked for Vercel safety. */
   readonly overwrite?: boolean;
+  /** Schema-declared values to write. */
   readonly values: Readonly<Record<string, string>>;
 }
 
+/**
+ * Structured result returned by provider env checks.
+ */
 export interface ProviderCheckResult {
+  /** Variables present in the provider. */
   readonly present: readonly string[];
+  /** Variables missing from the provider. */
   readonly missing: readonly string[];
 }
 
+/**
+ * Structured result returned by Vercel env pushes.
+ */
 export interface ProviderPushResult {
+  /** Variables created by the push. */
   readonly created: readonly string[];
+  /** Variables skipped because they already existed. */
   readonly skipped: readonly string[];
+  /** Whether remote state was left unchanged. */
   readonly dryRun: boolean;
 }
 
+/**
+ * Vercel deploy adapter returned by {@link vercel}.
+ */
 export interface VercelDeployAdapter {
+  /** Provider name for structured output. */
   readonly name: "vercel";
+  /**
+   * Checks that schema-declared keys exist remotely.
+   *
+   * @param request - Target environment and required keys.
+   * @returns Present and missing key names.
+   */
   check(request: VercelCheckRequest): Promise<ProviderCheckResult>;
+  /**
+   * Pushes schema-declared values without printing secret values.
+   *
+   * @param request - Target environment and values to write.
+   * @returns Created, skipped, and dry-run status.
+   */
   push(request: VercelPushRequest): Promise<ProviderPushResult>;
 }
 
@@ -40,6 +89,12 @@ interface VercelEnvRecord {
   readonly key: string;
 }
 
+/**
+ * Creates a Vercel deploy adapter.
+ *
+ * @param options - Project, team, token, and fetch settings.
+ * @returns Vercel deploy adapter.
+ */
 export function vercel(options: VercelAdapterOptions): VercelDeployAdapter {
   const fetcher = options.fetch ?? fetch;
 

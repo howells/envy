@@ -168,6 +168,15 @@ export async function runCli(
   return exitCodes.usage;
 }
 
+/**
+ * Describes the public `envy` command contract.
+ *
+ * This metadata is intended for agents, CI wrappers, and editor integrations
+ * that need to discover available commands, flags, output shapes, and exit
+ * codes without scraping human-oriented help text.
+ *
+ * @returns Machine-readable CLI metadata.
+ */
 export function describeCli(): Record<string, unknown> {
   return {
     commands: [
@@ -238,7 +247,7 @@ export function describeCli(): Record<string, unknown> {
       "70": "internal software error",
     },
     name: "envy",
-    version: "0.3.4",
+    version: "0.3.5",
   };
 }
 
