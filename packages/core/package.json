@@ -1,6 +1,6 @@
 {
   "name": "@howells/envy",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "type": "module",
   "bin": {
     "envy": "dist/cli.js"
