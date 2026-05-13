@@ -261,6 +261,9 @@ describe("runCli", () => {
           {
             name: "check local",
           },
+          {
+            name: "run local",
+          },
         ],
         exitCodes: {
           "65": "env validation failed",
@@ -268,6 +271,67 @@ describe("runCli", () => {
       },
       ok: true,
     });
+  });
+
+  it("runs a command with validated dotenv values in the child env", async () => {
+    const fixture = await createCliFixture();
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "run",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          ".env.production",
+          "--",
+          process.execPath,
+          "-e",
+          "console.log(process.env.DATABASE_URL); console.error(process.env.OPENAI_API_KEY ? 'key-present' : 'key-missing')",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(0);
+      expect(output.stdout.trim()).toBe("https://db.example.com");
+      expect(output.stderr.trim()).toBe("key-present");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("does not run the command when env validation fails", async () => {
+    const fixture = await createCliFixture({
+      envFile: "DATABASE_URL=not-a-url\n",
+    });
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "run",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          ".env.production",
+          "--",
+          process.execPath,
+          "-e",
+          "console.log('should-not-run')",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(65);
+      expect(output.stdout).toBe("");
+      expect(output.stderr).toContain("Envy local check failed");
+      expect(output.stderr).not.toContain("should-not-run");
+    } finally {
+      await fixture.cleanup();
+    }
   });
 });
 

@@ -214,6 +214,15 @@ for CI output that another tool can parse.
 npx envy check local --schema ./src/env/schema.ts --from .env.production --json
 ```
 
+Use `run local` for smoke tests and scripts that should inherit validated
+dotenv values:
+
+```bash
+npx envy run local --schema ./src/env/schema.ts --from .env --from .env.local -- node ./scripts/smoke.js
+```
+
+The child command only starts after validation passes.
+
 JSON success is written to stdout:
 
 ```json

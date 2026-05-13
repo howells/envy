@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawn } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -59,6 +60,10 @@ interface CheckLocalOptions {
   readonly schemaPath: string;
 }
 
+interface RunLocalOptions extends CheckLocalOptions {
+  readonly command: readonly string[];
+}
+
 interface CheckSuccess {
   readonly keyCount: number;
   readonly keys: readonly string[];
@@ -80,11 +85,13 @@ const helpText = `envy
 
 Usage:
   envy check local --schema <file> [--from <file>] [--mode server|client|all]
+  envy run local --schema <file> [--from <file>] [--mode server|client|all] -- <command>
   envy describe
 
 Commands:
   describe      Print machine-readable command metadata.
   check local   Validate process env or dotenv files against an Envy schema.
+  run local     Validate env, load dotenv files, then run a command.
 
 Options:
   --schema <file>       Schema module to import. Required for check local.
@@ -152,6 +159,10 @@ export async function runCli(
 
   if (command === "check" && subcommand === "local") {
     return checkLocal(rest, io, startedAt);
+  }
+
+  if (command === "run" && subcommand === "local") {
+    return runLocal(rest, io, startedAt);
   }
 
   const error = createProblem({
@@ -236,6 +247,52 @@ export function describeCli(): Record<string, unknown> {
             error: "{ ok: false, error: ProblemDetails, metadata }",
             success: "{ ok: true, data: CheckSuccess, metadata }",
           },
+        },
+      },
+      {
+        description:
+          "Validate env, load dotenv files into a subprocess environment, then run a command.",
+        name: "run local",
+        options: [
+          {
+            description: "Schema module to import.",
+            name: "--schema",
+            required: true,
+            type: "path",
+          },
+          {
+            description:
+              "Exported schema name. Defaults to default, envSchema, then schema.",
+            name: "--export",
+            required: false,
+            type: "string",
+          },
+          {
+            description:
+              "Dotenv file to load. May be repeated; later files override earlier files.",
+            name: "--from",
+            repeatable: true,
+            required: false,
+            type: "path",
+          },
+          {
+            default: "server",
+            enum: ["server", "client", "all"],
+            name: "--mode",
+            required: false,
+            type: "string",
+          },
+          {
+            description:
+              "Command separator. Everything after this is executed as the child command.",
+            name: "--",
+            required: true,
+            type: "separator",
+          },
+        ],
+        output: {
+          success:
+            "No Envy output is written on success; stdout and stderr belong to the child process.",
         },
       },
     ],
@@ -489,6 +546,42 @@ async function checkLocal(
   }
 }
 
+async function runLocal(
+  args: readonly string[],
+  io: CliIO,
+  startedAt: number,
+): Promise<number> {
+  let options: RunLocalOptions;
+
+  try {
+    options = parseRunLocalOptions(args);
+  } catch (error) {
+    const problem =
+      error instanceof CliProblem
+        ? error.problem
+        : createProblem({
+            code: "ENVY_USAGE_ERROR",
+            message: error instanceof Error ? error.message : String(error),
+            title: "Usage error",
+          });
+    io.stderr.write(`${formatTextError(problem)}\n`);
+    return error instanceof CliProblem ? error.exitCode : exitCodes.usage;
+  }
+
+  try {
+    const schema = await importEnvSchema(options, io.cwd);
+    const fileEnv = await readDotenvInput(options, io);
+    const childEnv = {
+      ...fileEnv,
+      ...io.env,
+    };
+    parseWithMode(schema, childEnv, options.mode);
+    return spawnCommand(options.command, childEnv, io);
+  } catch (error) {
+    return reportCheckError(error, options.format, io, startedAt, "run local");
+  }
+}
+
 function parseCheckLocalOptions(
   args: readonly string[],
 ): CheckLocalOptions | Error {
@@ -583,6 +676,44 @@ function parseCheckLocalOptions(
   };
 }
 
+function parseRunLocalOptions(args: readonly string[]): RunLocalOptions {
+  const separatorIndex = args.indexOf("--");
+  if (separatorIndex === -1) {
+    throw new CliUsageError("Missing command separator `--`.", [
+      "Run `envy run local --schema ./env.schema.ts --from .env -- node ./script.js`.",
+    ]);
+  }
+
+  const command = args.slice(separatorIndex + 1);
+  if (command.length === 0 || !command[0]) {
+    throw new CliUsageError("Missing command to run after `--`.", [
+      "Pass the executable and its arguments after `--`.",
+    ]);
+  }
+
+  const options = parseCheckLocalOptions(args.slice(0, separatorIndex));
+  if (options instanceof Error) {
+    throw options;
+  }
+
+  if (options.describe) {
+    throw new CliUsageError("`--describe` is not supported for run local.", [
+      "Use `envy describe` to inspect command metadata.",
+    ]);
+  }
+
+  if (options.format === "json") {
+    throw new CliUsageError("JSON output is not supported for run local.", [
+      "Use `envy check local --json` for machine-readable validation output.",
+    ]);
+  }
+
+  return {
+    ...options,
+    command,
+  };
+}
+
 function wantsJson(args: readonly string[]): boolean {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -662,6 +793,13 @@ async function readInput(
     return { ...io.env };
   }
 
+  return readDotenvInput(options, io);
+}
+
+async function readDotenvInput(
+  options: CheckLocalOptions,
+  io: CliIO,
+): Promise<Record<string, string>> {
   const input: Record<string, string> = {};
   for (const fromPath of options.from) {
     const resolvedPath = resolve(io.cwd, fromPath);
@@ -676,6 +814,53 @@ async function readInput(
     Object.assign(input, parseDotenv(fileContents));
   }
   return input;
+}
+
+async function spawnCommand(
+  command: readonly string[],
+  env: Record<string, string | undefined>,
+  io: CliIO,
+): Promise<number> {
+  return new Promise((resolveProcess, reject) => {
+    const [executable, ...args] = command;
+    if (!executable) {
+      reject(
+        new CliUsageError("Missing command to run after `--`.", [
+          "Pass the executable and its arguments after `--`.",
+        ]),
+      );
+      return;
+    }
+
+    const child = spawn(executable, args, {
+      cwd: io.cwd,
+      env,
+      shell: process.platform === "win32",
+      stdio: ["inherit", "pipe", "pipe"],
+    });
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      io.stdout.write(chunk.toString("utf8"));
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      io.stderr.write(chunk.toString("utf8"));
+    });
+    child.on("error", (error) => {
+      reject(
+        new CliInputError(`Command could not be started: ${executable}`, [
+          error.message,
+        ]),
+      );
+    });
+    child.on("close", (code, signal) => {
+      if (signal) {
+        resolveProcess(128);
+        return;
+      }
+
+      resolveProcess(typeof code === "number" ? code : exitCodes.software);
+    });
+  });
 }
 
 function parseWithMode(
@@ -705,6 +890,7 @@ function reportCheckError(
   format: OutputFormat,
   io: CliIO,
   startedAt: number,
+  commandName = "check local",
 ): number {
   if (isEnvValidationError(error)) {
     const problem = createProblem({
@@ -731,7 +917,7 @@ function reportCheckError(
             ...problem,
             detail: JSON.stringify(error.issues),
           },
-          "check local",
+          commandName,
           startedAt,
         ),
       );
@@ -751,7 +937,7 @@ function reportCheckError(
     if (format === "json") {
       writeJson(
         io.stderr,
-        errorEnvelope(error.problem, "check local", startedAt),
+        errorEnvelope(error.problem, commandName, startedAt),
       );
     } else {
       io.stderr.write(`${formatTextError(error.problem)}\n`);
@@ -769,7 +955,7 @@ function reportCheckError(
     title: "Internal error",
   });
   if (format === "json") {
-    writeJson(io.stderr, errorEnvelope(problem, "check local", startedAt));
+    writeJson(io.stderr, errorEnvelope(problem, commandName, startedAt));
     return exitCodes.software;
   }
 

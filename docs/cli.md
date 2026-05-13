@@ -97,6 +97,21 @@ The dotenv parser supports common syntax: comments, blank lines, `export KEY=`,
 single-quoted values, double-quoted values, inline comments after unquoted
 values, and empty values. It does not append newlines to secrets.
 
+### `envy run local`
+
+Validate env first, then run a command with the checked dotenv files loaded into
+the child process environment.
+
+```bash
+npx envy run local --schema ./src/env/schema.ts --from .env --from .env.local -- node ./scripts/smoke.js
+```
+
+Files passed with `--from` are parsed in order; later files override earlier
+files. The current process environment wins over file values, so CI-injected
+secrets are not replaced by local dotenv files. On success, Envy writes no
+output of its own; stdout and stderr belong to the child process. If validation
+fails, the command is not started.
+
 ## Helper APIs
 
 Provider checks, safe provider pushes, Next codegen, dotenv loading, and lint

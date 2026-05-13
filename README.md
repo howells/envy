@@ -211,6 +211,16 @@ JSON output uses a stable envelope:
 { "ok": true, "data": {}, "metadata": {} }
 ```
 
+Use `run local` when a smoke test or script needs the same validated dotenv
+sources loaded into its child process:
+
+```bash
+npx envy run local --schema ./src/env/schema.ts --from .env --from .env.local -- node ./scripts/smoke.js
+```
+
+On success, Envy stays silent and the child process owns stdout and stderr. If
+validation fails, the command is not started.
+
 Errors use the same shape on stderr and semantic exit codes:
 
 - `64`: usage error
