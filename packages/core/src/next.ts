@@ -38,9 +38,23 @@ export interface GeneratedNextEnvFiles {
 /**
  * Generates Next.js env boundary source from an Envy schema.
  *
+ * The generated client source contains explicit `process.env.PUBLIC_KEY` reads
+ * for every public key. Agents editing Next apps should prefer this helper over
+ * hand-writing dynamic loops, because Next.js cannot inline dynamic env access
+ * in client bundles.
+ *
  * @param schema - Envy schema returned by `defineEnv`.
  * @param options - Import path used in generated modules.
  * @returns Client and server module source.
+ *
+ * @example
+ * ```ts
+ * import { generateNextEnvFiles } from "@howells/envy/next";
+ *
+ * const files = generateNextEnvFiles(envSchema, {
+ *   schemaImportPath: "./schema",
+ * });
+ * ```
  */
 export function generateNextEnvFiles<TDefinition extends EnvDefinition>(
   schema: EnvSchema<TDefinition>,
@@ -73,6 +87,17 @@ export function generateNextEnvFiles<TDefinition extends EnvDefinition>(
  * @param schema - Envy schema returned by `defineEnv`.
  * @param options - Destination files and schema import path.
  * @returns The generated source that was written.
+ *
+ * @example
+ * ```ts
+ * import { syncNextEnv } from "@howells/envy/next";
+ *
+ * syncNextEnv(envSchema, {
+ *   clientFile: "src/env/client.ts",
+ *   serverFile: "src/env/server.ts",
+ *   schemaImportPath: "./schema",
+ * });
+ * ```
  */
 export function syncNextEnv<TDefinition extends EnvDefinition>(
   schema: EnvSchema<TDefinition>,

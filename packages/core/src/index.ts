@@ -6,7 +6,12 @@
  * parse method is called. This keeps tests, framework build phases, and CLI
  * tools predictable.
  *
- * @example
+ * Agents and code generators should treat an Envy schema module as the single
+ * env boundary: define the schema with Zod, export the schema, then parse
+ * explicit input at the server/client entrypoint. Do not read undeclared
+ * `process.env` keys throughout application code.
+ *
+ * @example Define and parse a server env module.
  * ```ts
  * import { defineEnv } from "@howells/envy";
  * import { z } from "zod";
@@ -69,7 +74,9 @@ export interface EnvVarOptions {
    * Controls whether this variable participates in deploy checks and pushes.
    *
    * `true` means every deploy environment, `false` means no deploy environment,
-   * and an array narrows the variable to the listed deploy environments.
+   * and an array narrows the variable to the listed deploy environments. When
+   * omitted, server and public variables participate, optional variables do not,
+   * and system variables participate only when explicitly requested by tooling.
    */
   deploy?: boolean | DeployEnvironment[];
 }
@@ -113,6 +120,10 @@ export type EnvGroupDefinition = Record<string, EnvSchemaEntry>;
  *
  * Keys must be unique across all groups. Public keys are prefix-enforced during
  * schema definition so mistakes fail before runtime parsing.
+ *
+ * Agents should generate one shared schema module and then separate parse
+ * modules for server/client runtime boundaries. Keep raw secret values out of
+ * docs, logs, generated comments, and CLI output.
  *
  * @example
  * ```ts
@@ -271,6 +282,12 @@ export interface EnvSchema<TDefinition extends EnvDefinition> {
    * @param input - Object containing raw env values, usually `process.env`.
    * @returns A typed proxy over declared env keys.
    * @throws {@link EnvValidationError} when an accessed key fails validation.
+   *
+   * @example
+   * ```ts
+   * const env = envSchema.lazy(process.env);
+   * const databaseUrl = env.DATABASE_URL; // validated here
+   * ```
    */
   lazy(input: Record<string, unknown>): ParsedEnv<TDefinition>;
   /**
@@ -280,6 +297,11 @@ export interface EnvSchema<TDefinition extends EnvDefinition> {
    * @param input - Object containing raw env values, usually `process.env`.
    * @returns A frozen object containing server, public, system, and optional keys.
    * @throws {@link EnvValidationError} when any included key fails validation.
+   *
+   * @example
+   * ```ts
+   * const env = envSchema.parse(process.env);
+   * ```
    */
   parse(input: Record<string, unknown>): ParsedEnv<TDefinition>;
   /**
@@ -289,6 +311,13 @@ export interface EnvSchema<TDefinition extends EnvDefinition> {
    * literal `process.env.NEXT_PUBLIC_*` reads so bundling can inline values.
    * @returns A frozen object containing only public keys.
    * @throws {@link EnvValidationError} when any public key fails validation.
+   *
+   * @example
+   * ```ts
+   * export const env = envSchema.parseClient({
+   *   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+   * });
+   * ```
    */
   parseClient(input: Record<string, unknown>): ClientEnv<TDefinition>;
   /**
@@ -297,6 +326,11 @@ export interface EnvSchema<TDefinition extends EnvDefinition> {
    * @param input - Object containing raw env values, usually `process.env`.
    * @returns A frozen object containing all server-side env keys.
    * @throws {@link EnvValidationError} when any server-side key fails validation.
+   *
+   * @example
+   * ```ts
+   * export const env = envSchema.parseServer(process.env);
+   * ```
    */
   parseServer(input: Record<string, unknown>): ServerEnv<TDefinition>;
 }
@@ -367,7 +401,7 @@ export interface ListDeployEnvVarsOptions {
  * @throws Error when public keys do not use the configured prefix or when a key
  * is declared in more than one group.
  *
- * @example
+ * @example Define a schema and validate server runtime values.
  * ```ts
  * const envSchema = defineEnv({
  *   server: { DATABASE_URL: z.string().url() },
@@ -435,6 +469,13 @@ export function defineEnv<const TDefinition extends EnvDefinition>(
  * @param schema - Envy schema returned by {@link defineEnv}.
  * @param options - Optional group filter.
  * @returns Stable metadata for schema-declared variables.
+ *
+ * @example Generate an allowlist without exposing values.
+ * ```ts
+ * const publicKeys = listEnvVars(envSchema, { groups: ["public"] }).map(
+ *   (entry) => entry.key,
+ * );
+ * ```
  */
 export function listEnvVars<TDefinition extends EnvDefinition>(
   schema: EnvSchema<TDefinition>,
@@ -464,6 +505,13 @@ export function listEnvVars<TDefinition extends EnvDefinition>(
  * @param schema - Envy schema returned by {@link defineEnv}.
  * @param options - Target deployment environment and system-key behavior.
  * @returns Deploy-relevant variable metadata.
+ *
+ * @example Select keys that should exist in production.
+ * ```ts
+ * const deployKeys = listDeployEnvVars(envSchema, {
+ *   environment: "production",
+ * }).map((entry) => entry.key);
+ * ```
  */
 export function listDeployEnvVars<TDefinition extends EnvDefinition>(
   schema: EnvSchema<TDefinition>,
@@ -497,8 +545,11 @@ function defineVar<TSchema extends EnvValueSchema>(
  * Raw Zod schemas are accepted directly in every group, so use `v(...)` only
  * when a variable needs non-default metadata such as deploy targeting.
  *
- * @example
+ * @example Attach deploy metadata without changing parser behavior.
  * ```ts
+ * import { defineEnv, v } from "@howells/envy";
+ * import { z } from "zod";
+ *
  * const envSchema = defineEnv({
  *   server: {
  *     OPENAI_API_KEY: v(z.string().min(1), {

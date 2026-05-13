@@ -93,8 +93,27 @@ interface VercelEnvRecord {
 /**
  * Creates a Vercel deploy adapter.
  *
+ * The adapter only returns key names in structured results. Do not log or
+ * serialize the `values` object passed to `push`, because it contains secrets.
+ *
  * @param options - Project, team, token, and fetch settings.
  * @returns Vercel deploy adapter.
+ *
+ * @example Check required production keys.
+ * ```ts
+ * import { listDeployEnvVars } from "@howells/envy";
+ * import { vercel } from "@howells/envy/adapters/vercel";
+ *
+ * const adapter = vercel({ project: "my-app" });
+ * const keys = listDeployEnvVars(envSchema, {
+ *   environment: "production",
+ * }).map((entry) => entry.key);
+ *
+ * const result = await adapter.check({
+ *   environment: "production",
+ *   keys,
+ * });
+ * ```
  */
 export function vercel(options: VercelAdapterOptions): VercelDeployAdapter {
   const fetcher = options.fetch ?? fetch;

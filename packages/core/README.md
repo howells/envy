@@ -52,6 +52,46 @@ export const envSchema = defineEnv({
 export const env = envSchema.parseServer(process.env);
 ```
 
+## Agent Usage Contract
+
+When generating or editing code that uses Envy:
+
+- Import the parser from `@howells/envy` and Zod from `zod`.
+- Create one schema module that exports `envSchema`.
+- Put private required keys in `server`, public client keys in `public`, runtime-owned keys in `system`, and integration keys that may be absent in `optional`.
+- Parse explicit input at the runtime boundary: `parseServer(process.env)` on the server and `parseClient({ NEXT_PUBLIC_KEY: process.env.NEXT_PUBLIC_KEY })` for client bundles.
+- Import the parsed `env` object from application code instead of reading `process.env` directly.
+- Never print or serialize env values. CLI and adapter output should include key names only.
+
+Minimal Next.js layout:
+
+```ts
+// src/env/schema.ts
+import { defineEnv } from "@howells/envy";
+import { z } from "zod";
+
+export const envSchema = defineEnv({
+  server: { DATABASE_URL: z.string().url() },
+  public: { NEXT_PUBLIC_APP_URL: z.string().url() },
+});
+```
+
+```ts
+// src/env/server.ts
+import { envSchema } from "./schema";
+
+export const env = envSchema.parseServer(process.env);
+```
+
+```ts
+// src/env/client.ts
+import { envSchema } from "./schema";
+
+export const env = envSchema.parseClient({
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+});
+```
+
 ## Groups
 
 - `server`: private values required by server-side code
@@ -273,18 +313,33 @@ The parser ignores deploy metadata. Provider tooling can use it through
 The package includes helper APIs for the deployment and framework edges:
 
 ```ts
+import { listDeployEnvVars, listEnvVars } from "@howells/envy";
 import { loadDotenv } from "@howells/envy/dotenv";
-import { syncNextEnv } from "@howells/envy/next";
+import { generateNextEnvFiles, syncNextEnv } from "@howells/envy/next";
 import { createOxlintConfig } from "@howells/envy/lint";
 import { vercel } from "@howells/envy/adapters/vercel";
 import { railway } from "@howells/envy/adapters/railway";
 ```
 
+- `listEnvVars()`: schema metadata for generated code, allowlists, and docs
+- `listDeployEnvVars()`: deploy-relevant keys after applying `v(..., { deploy })`
 - `@howells/envy/dotenv`: `.env` loading without shelling out
 - `@howells/envy/next`: generated Next client/server env boundaries
 - `@howells/envy/lint`: Oxlint, ESLint, and Biome config helpers
 - `@howells/envy/adapters/vercel`: Vercel env presence checks and API pushes
 - `@howells/envy/adapters/railway`: Railway env presence checks and API pushes
+
+Use metadata helpers when building agents, CI checks, or provider workflows:
+
+```ts
+const publicKeys = listEnvVars(envSchema, { groups: ["public"] }).map(
+  (entry) => entry.key,
+);
+
+const productionKeys = listDeployEnvVars(envSchema, {
+  environment: "production",
+}).map((entry) => entry.key);
+```
 
 ## Errors
 

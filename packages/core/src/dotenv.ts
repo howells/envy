@@ -59,6 +59,14 @@ export interface LoadDotenvResult {
  * @param path - File path to parse.
  * @param options - Path resolution and missing-file behavior.
  * @returns Parsed dotenv key/value pairs.
+ *
+ * @example
+ * ```ts
+ * import { parseDotenvFile } from "@howells/envy/dotenv";
+ *
+ * const values = parseDotenvFile(".env.production", { cwd: process.cwd() });
+ * const env = envSchema.parseServer(values);
+ * ```
  */
 export function parseDotenvFile(
   path: string,
@@ -87,6 +95,15 @@ export function parseDotenvFile(
  * @param paths - Dotenv files to load in order.
  * @param options - Loading behavior and target environment object.
  * @returns Files loaded and keys written.
+ *
+ * @example Load files into an isolated object before parsing.
+ * ```ts
+ * import { loadDotenv } from "@howells/envy/dotenv";
+ *
+ * const processEnv: Record<string, string | undefined> = {};
+ * loadDotenv([".env", ".env.local"], { processEnv });
+ * const env = envSchema.parseServer(processEnv);
+ * ```
  */
 export function loadDotenv(
   paths: readonly string[],

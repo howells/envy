@@ -34,6 +34,15 @@ export interface LintIntegrationOptions {
  *
  * @param options - Allowed variables and env boundary files.
  * @returns Oxlint config fragment.
+ *
+ * @example
+ * ```ts
+ * import { createOxlintConfig } from "@howells/envy/lint";
+ *
+ * export default createOxlintConfig({
+ *   envFiles: ["src/env/server.ts", "src/env/client.ts"],
+ * });
+ * ```
  */
 export function createOxlintConfig(
   options: LintIntegrationOptions = {},
@@ -57,6 +66,15 @@ export function createOxlintConfig(
  *
  * @param options - Env boundary files to exempt.
  * @returns ESLint flat config array.
+ *
+ * @example
+ * ```ts
+ * import { createEslintConfig } from "@howells/envy/lint";
+ *
+ * export default [
+ *   ...createEslintConfig({ envFiles: ["src/env/server.ts"] }),
+ * ];
+ * ```
  */
 export function createEslintConfig(
   options: LintIntegrationOptions = {},
@@ -108,6 +126,15 @@ export function createBiomeConfig(
  * @param target - Lint backend to generate config for.
  * @param options - Allowed direct env reads and boundary files.
  * @returns Target-specific config fragment.
+ *
+ * @example
+ * ```ts
+ * import { createLintIntegration } from "@howells/envy/lint";
+ *
+ * const config = createLintIntegration("oxlint", {
+ *   allowedVariables: ["NODE_ENV", "CI"],
+ * });
+ * ```
  */
 export function createLintIntegration(
   target: LintTarget,

@@ -80,8 +80,28 @@ export interface RailwayDeployAdapter {
 /**
  * Creates a Railway deploy adapter.
  *
+ * The adapter only returns key names in structured results. Do not log or
+ * serialize the `values` object passed to `push`, because it contains secrets.
+ *
  * @param options - Project, service, environment, token, and fetch settings.
  * @returns Railway deploy adapter.
+ *
+ * @example Check required keys.
+ * ```ts
+ * import { listDeployEnvVars } from "@howells/envy";
+ * import { railway } from "@howells/envy/adapters/railway";
+ *
+ * const adapter = railway({
+ *   environmentId: "env_...",
+ *   projectId: "project_...",
+ *   serviceId: "service_...",
+ * });
+ * const keys = listDeployEnvVars(envSchema, {
+ *   environment: "production",
+ * }).map((entry) => entry.key);
+ *
+ * const result = await adapter.check({ keys });
+ * ```
  */
 export function railway(options: RailwayAdapterOptions): RailwayDeployAdapter {
   const fetcher = options.fetch ?? fetch;
