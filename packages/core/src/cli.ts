@@ -5,7 +5,12 @@ import { realpathSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { EnvValidationError } from "./index.js";
+import {
+  type EnvDefinition,
+  type EnvSchema,
+  EnvValidationError,
+  listEnvVars,
+} from "./index.js";
 
 type CheckMode = "all" | "client" | "server";
 type OutputFormat = "json" | "text";
@@ -60,6 +65,15 @@ interface CheckLocalOptions {
   readonly schemaPath: string;
 }
 
+interface CheckTurboOptions {
+  readonly exportName?: string;
+  readonly format: OutputFormat;
+  readonly mode: CheckMode;
+  readonly schemaPath: string;
+  readonly task: string;
+  readonly turboPath: string;
+}
+
 interface RunLocalOptions extends CheckLocalOptions {
   readonly command: readonly string[];
 }
@@ -71,7 +85,15 @@ interface CheckSuccess {
   readonly sources: readonly string[];
 }
 
-interface CliEnvSchema {
+interface CheckTurboSuccess {
+  readonly keyCount: number;
+  readonly keys: readonly string[];
+  readonly missing: readonly string[];
+  readonly task: string;
+  readonly turbo: string;
+}
+
+type CliEnvSchema = EnvSchema<EnvDefinition> & {
   parse(input: Record<string, unknown>): Readonly<Record<string, unknown>>;
   parseClient(
     input: Record<string, unknown>,
@@ -79,24 +101,28 @@ interface CliEnvSchema {
   parseServer(
     input: Record<string, unknown>,
   ): Readonly<Record<string, unknown>>;
-}
+};
 
 const helpText = `envy
 
 Usage:
   envy check local --schema <file> [--from <file>] [--mode server|client|all]
+  envy check turbo --schema <file> [--turbo turbo.json] [--task build]
   envy run local --schema <file> [--from <file>] [--mode server|client|all] -- <command>
   envy describe
 
 Commands:
   describe      Print machine-readable command metadata.
   check local   Validate process env or dotenv files against an Envy schema.
+  check turbo   Verify schema keys are registered in Turborepo task env.
   run local     Validate env, load dotenv files, then run a command.
 
 Options:
   --schema <file>       Schema module to import. Required for check local.
   --export <name>       Exported schema name. Defaults to default, envSchema, then schema.
   --from <file>         Dotenv file to validate. Repeat to merge several files.
+  --turbo <file>        Turborepo config to inspect. Defaults to turbo.json.
+  --task <name>         Turborepo task to inspect. Defaults to build.
   --mode <mode>         Parse mode: server, client, or all. Default: server.
   --format <format>     Output format: text or json. Default: text.
   --json                Alias for --format json.
@@ -159,6 +185,10 @@ export async function runCli(
 
   if (command === "check" && subcommand === "local") {
     return checkLocal(rest, io, startedAt);
+  }
+
+  if (command === "check" && subcommand === "turbo") {
+    return checkTurbo(rest, io, startedAt);
   }
 
   if (command === "run" && subcommand === "local") {
@@ -246,6 +276,65 @@ export function describeCli(): Record<string, unknown> {
           jsonEnvelope: {
             error: "{ ok: false, error: ProblemDetails, metadata }",
             success: "{ ok: true, data: CheckSuccess, metadata }",
+          },
+        },
+      },
+      {
+        description:
+          "Verify schema keys are registered in Turborepo task env or global env.",
+        name: "check turbo",
+        options: [
+          {
+            description: "Schema module to import.",
+            name: "--schema",
+            required: true,
+            type: "path",
+          },
+          {
+            description:
+              "Exported schema name. Defaults to default, envSchema, then schema.",
+            name: "--export",
+            required: false,
+            type: "string",
+          },
+          {
+            default: "turbo.json",
+            description: "Turborepo config to inspect.",
+            name: "--turbo",
+            required: false,
+            type: "path",
+          },
+          {
+            default: "build",
+            description: "Turborepo task to inspect.",
+            name: "--task",
+            required: false,
+            type: "string",
+          },
+          {
+            default: "all",
+            enum: ["server", "client", "all"],
+            name: "--mode",
+            required: false,
+            type: "string",
+          },
+          {
+            enum: ["text", "json"],
+            name: "--format",
+            required: false,
+            type: "string",
+          },
+          {
+            description: "Alias for --format json.",
+            name: "--json",
+            required: false,
+            type: "boolean",
+          },
+        ],
+        output: {
+          jsonEnvelope: {
+            error: "{ ok: false, error: ProblemDetails, metadata }",
+            success: "{ ok: true, data: CheckTurboSuccess, metadata }",
           },
         },
       },
@@ -546,6 +635,98 @@ async function checkLocal(
   }
 }
 
+async function checkTurbo(
+  args: readonly string[],
+  io: CliIO,
+  startedAt: number,
+): Promise<number> {
+  let options: CheckTurboOptions;
+
+  try {
+    options = parseCheckTurboOptions(args);
+  } catch (error) {
+    const format = wantsJson(args) ? "json" : "text";
+    const problem =
+      error instanceof CliProblem
+        ? error.problem
+        : createProblem({
+            code: "ENVY_USAGE_ERROR",
+            message: error instanceof Error ? error.message : String(error),
+            title: "Usage error",
+          });
+    if (format === "json") {
+      writeJson(io.stderr, errorEnvelope(problem, "check turbo", startedAt));
+    } else {
+      io.stderr.write(`${formatTextError(problem)}\n`);
+    }
+    return error instanceof CliProblem ? error.exitCode : exitCodes.usage;
+  }
+
+  try {
+    const schema = await importEnvSchema(options, io.cwd);
+    const turbo = await readTurboConfig(options, io.cwd);
+    const keys = listSchemaKeys(schema, options.mode);
+    const registered = getTurboRegisteredEnv(turbo, options.task);
+    const missing = keys.filter(
+      (key) => !matchesAnyEnvPattern(key, registered),
+    );
+
+    if (missing.length > 0) {
+      const problem = createProblem({
+        code: "ENVY_TURBO_ENV_MISSING",
+        fields: missing.map((key) => ({
+          message: `Register ${key} in globalEnv or tasks.${options.task}.env.`,
+          path: key,
+        })),
+        message: `${missing.length} schema variable(s) are not registered for Turborepo task ${options.task}.`,
+        suggestions: [
+          `Add the missing key names or matching wildcard patterns to tasks.${options.task}.env.`,
+          "Use globalEnv only for variables that should affect every task hash.",
+        ],
+        title: "Turborepo env registration missing",
+      });
+
+      if (options.format === "json") {
+        writeJson(io.stderr, errorEnvelope(problem, "check turbo", startedAt));
+      } else {
+        io.stderr.write(
+          `Envy turbo check failed: ${missing.length} variable(s) missing from ${options.task} env.\n`,
+        );
+        for (const key of missing) {
+          io.stderr.write(`- ${key}\n`);
+        }
+      }
+      return exitCodes.data;
+    }
+
+    const success: CheckTurboSuccess = {
+      keyCount: keys.length,
+      keys,
+      missing,
+      task: options.task,
+      turbo: options.turboPath,
+    };
+
+    if (options.format === "json") {
+      writeJson(io.stdout, okEnvelope(success, "check turbo", startedAt));
+      return exitCodes.ok;
+    }
+
+    io.stdout.write(
+      `Envy turbo check passed: ${success.keyCount} variable(s) registered for ${options.task}.\n`,
+    );
+    return exitCodes.ok;
+  } catch (error) {
+    return reportCheckError(
+      error,
+      options.format,
+      io,
+      startedAt,
+      "check turbo",
+    );
+  }
+}
+
 async function runLocal(
   args: readonly string[],
   io: CliIO,
@@ -580,6 +761,94 @@ async function runLocal(
   } catch (error) {
     return reportCheckError(error, options.format, io, startedAt, "run local");
   }
+}
+
+function parseCheckTurboOptions(args: readonly string[]): CheckTurboOptions {
+  let exportName: string | undefined;
+  let format: OutputFormat = "text";
+  let mode: CheckMode = "all";
+  let schemaPath: string | undefined;
+  let task = "build";
+  let turboPath = "turbo.json";
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg) continue;
+
+    if (arg === "--help" || arg === "-h") {
+      throw new Error(helpText);
+    }
+
+    if (arg === "--json") {
+      format = "json";
+      continue;
+    }
+
+    if (arg === "--schema") {
+      schemaPath = readFlagValue(args, index, arg);
+      assertSafePath("Schema path", schemaPath);
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--export") {
+      exportName = readFlagValue(args, index, arg);
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--turbo") {
+      turboPath = readFlagValue(args, index, arg);
+      assertSafePath("Turbo config path", turboPath);
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--task") {
+      task = readFlagValue(args, index, arg);
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--mode") {
+      const value = readFlagValue(args, index, arg);
+      if (!isCheckMode(value)) {
+        throw new Error(
+          `Invalid --mode ${value}. Expected server, client, or all.`,
+        );
+      }
+      mode = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--format") {
+      const value = readFlagValue(args, index, arg);
+      if (!isOutputFormat(value)) {
+        throw new Error(`Invalid --format ${value}. Expected text or json.`);
+      }
+      format = value;
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown option: ${arg}`);
+  }
+
+  if (!schemaPath) {
+    throw new CliUsageError("Missing required --schema <file> option.", [
+      "Run `envy check turbo --schema ./src/env/schema.ts --turbo turbo.json --task build`.",
+    ]);
+  }
+
+  return {
+    exportName,
+    format,
+    mode,
+    schemaPath,
+    task,
+    turboPath,
+  };
 }
 
 function parseCheckLocalOptions(
@@ -752,7 +1021,7 @@ function hasControlCharacter(value: string): boolean {
 }
 
 async function importEnvSchema(
-  options: CheckLocalOptions,
+  options: Pick<CheckLocalOptions, "exportName" | "schemaPath">,
   cwd: string,
 ): Promise<CliEnvSchema> {
   const schemaFile = resolve(cwd, options.schemaPath);
@@ -783,6 +1052,101 @@ async function importEnvSchema(
   }
 
   return schema;
+}
+
+async function readTurboConfig(
+  options: CheckTurboOptions,
+  cwd: string,
+): Promise<Record<string, unknown>> {
+  const turboFile = resolve(cwd, options.turboPath);
+  let contents: string;
+  try {
+    contents = await readFile(turboFile, "utf8");
+  } catch {
+    throw new CliInputError(`Turbo config could not be read: ${turboFile}`, [
+      "Check the --turbo path and make sure the file exists.",
+    ]);
+  }
+
+  try {
+    const parsed = JSON.parse(contents) as unknown;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error("Turbo config must be a JSON object.");
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    throw new CliUsageError(
+      `Turbo config could not be parsed as JSON: ${error instanceof Error ? error.message : String(error)}`,
+      ["Pass a valid turbo.json file."],
+    );
+  }
+}
+
+function listSchemaKeys(
+  schema: CliEnvSchema,
+  mode: CheckMode,
+): readonly string[] {
+  const groups =
+    mode === "client"
+      ? (["public"] as const)
+      : mode === "server"
+        ? (["server", "public", "system", "optional"] as const)
+        : undefined;
+
+  return listEnvVars(schema, groups ? { groups } : {})
+    .map((entry) => entry.key)
+    .sort();
+}
+
+function getTurboRegisteredEnv(
+  turbo: Record<string, unknown>,
+  taskName: string,
+): readonly string[] {
+  const registered = [
+    ...readStringArray(turbo.globalEnv),
+    ...readStringArray(readObject(turbo.global)?.env),
+  ];
+  const task = readObject(readObject(turbo.tasks)?.[taskName]);
+  if (!task) {
+    throw new CliUsageError(
+      `Turbo task ${taskName} was not found in the config.`,
+      ["Pass --task with an existing task name."],
+    );
+  }
+
+  registered.push(...readStringArray(task.env));
+  return registered.filter((entry) => !entry.startsWith("!"));
+}
+
+function readObject(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function matchesAnyEnvPattern(
+  key: string,
+  patterns: readonly string[],
+): boolean {
+  return patterns.some((pattern) => matchesEnvPattern(key, pattern));
+}
+
+function matchesEnvPattern(key: string, pattern: string): boolean {
+  if (pattern === key) return true;
+  if (!pattern.includes("*")) return false;
+
+  const [prefix, ...rest] = pattern.split("*");
+  const suffix = rest.join("*");
+  return key.startsWith(prefix ?? "") && key.endsWith(suffix);
 }
 
 async function readInput(
@@ -868,9 +1232,13 @@ function parseWithMode(
   input: Record<string, unknown>,
   mode: CheckMode,
 ): Readonly<Record<string, unknown>> {
-  if (mode === "all") return schema.parse(input);
-  if (mode === "client") return schema.parseClient(input);
-  return schema.parseServer(input);
+  if (mode === "all") {
+    return schema.parse(input) as Readonly<Record<string, unknown>>;
+  }
+  if (mode === "client") {
+    return schema.parseClient(input) as Readonly<Record<string, unknown>>;
+  }
+  return schema.parseServer(input) as Readonly<Record<string, unknown>>;
 }
 
 function isEnvValidationError(error: unknown): error is EnvValidationError {

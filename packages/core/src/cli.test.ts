@@ -136,6 +136,114 @@ describe("runCli", () => {
     }
   });
 
+  it("fails when schema keys are missing from a turbo task env", async () => {
+    const fixture = await createCliFixture({
+      turboJson: JSON.stringify({
+        tasks: {
+          build: {
+            env: ["DATABASE_URL"],
+          },
+        },
+      }),
+    });
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "check",
+          "turbo",
+          "--schema",
+          "schema.mjs",
+          "--turbo",
+          "turbo.json",
+          "--task",
+          "build",
+          "--json",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(65);
+      expect(output.stdout).toBe("");
+      expect(JSON.parse(output.stderr)).toMatchObject({
+        error: {
+          code: "ENVY_TURBO_ENV_MISSING",
+          fields: [{ path: "OPENAI_API_KEY" }],
+        },
+        metadata: {
+          command: "check turbo",
+        },
+        ok: false,
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("accepts exact global env and wildcard task env registrations", async () => {
+    const fixture = await createCliFixture({
+      schema: `
+        import { z } from "zod";
+        import { defineEnv } from "../src/index.ts";
+
+        export const envSchema = defineEnv({
+          server: {
+            DATABASE_URL: z.string().url(),
+            OPENAI_API_KEY: z.string().min(1),
+          },
+          public: {
+            NEXT_PUBLIC_APP_URL: z.string().url(),
+          },
+        });
+      `,
+      turboJson: JSON.stringify({
+        globalEnv: ["OPENAI_API_KEY"],
+        tasks: {
+          build: {
+            env: ["DATABASE_URL", "NEXT_PUBLIC_*"],
+          },
+        },
+      }),
+    });
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "check",
+          "turbo",
+          "--schema",
+          "schema.mjs",
+          "--turbo",
+          "turbo.json",
+          "--task",
+          "build",
+          "--json",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(0);
+      expect(JSON.parse(output.stdout)).toMatchObject({
+        data: {
+          keyCount: 3,
+          keys: ["DATABASE_URL", "NEXT_PUBLIC_APP_URL", "OPENAI_API_KEY"],
+          missing: [],
+          task: "build",
+          turbo: "turbo.json",
+        },
+        metadata: {
+          command: "check turbo",
+        },
+        ok: true,
+      });
+      expect(output.stderr).toBe("");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("recognizes validation failures from separately loaded schema modules", async () => {
     const cwd = join(process.cwd(), ".tmp-cli-foreign-error-fixture");
     await rm(cwd, { force: true, recursive: true });
@@ -262,6 +370,9 @@ describe("runCli", () => {
             name: "check local",
           },
           {
+            name: "check turbo",
+          },
+          {
             name: "run local",
           },
         ],
@@ -370,14 +481,15 @@ function createOutput(cwd = process.cwd()): {
 }
 
 async function createCliFixture(
-  options: { envFile?: string } = {},
+  options: { envFile?: string; schema?: string; turboJson?: string } = {},
 ): Promise<{ cleanup(): Promise<void>; cwd: string }> {
   const cwd = join(process.cwd(), ".tmp-cli-fixture");
   await rm(cwd, { force: true, recursive: true });
   await mkdir(cwd, { recursive: true });
   await writeFile(
     join(cwd, "schema.mjs"),
-    `
+    options.schema ??
+      `
       import { z } from "zod";
       import { defineEnv } from "../src/index.ts";
 
@@ -394,6 +506,9 @@ async function createCliFixture(
     options.envFile ??
       "DATABASE_URL=https://db.example.com\nOPENAI_API_KEY=sk-test\n",
   );
+  if (options.turboJson) {
+    await writeFile(join(cwd, "turbo.json"), options.turboJson);
+  }
 
   return {
     cleanup() {

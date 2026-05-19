@@ -283,12 +283,18 @@ No values printed.
 
 ## Open Questions
 
-- Package structure and build system.
-- Exact TypeScript type model for grouped schema flattening.
-- Error formatting and exit codes.
 - CLI config discovery rules.
 - Provider API implementation details for Vercel and Railway.
 - Whether safe push should support multiline secret fixtures in tests from day one.
+
+## Settled Decisions
+
+- Package structure is a pnpm TypeScript monorepo with `packages/core` as the published `@howells/envy` package and supporting adapter, lint, Next, dotenv, config, and test packages.
+- Builds use `tsup`, TypeScript typechecking, Vitest, and package-level scripts coordinated from the root.
+- Grouped schema flattening is implemented through `server`, `public`, `system`, and `optional` groups. Server parsing includes server, public, system, and optional keys; client parsing includes public keys only.
+- CLI commands use semantic exit codes: `0` for success, `64` for usage errors, `65` for validation failures, `66` for unreadable inputs, and `70` for internal errors.
+- CLI JSON output uses a single-line `{ ok, data|error, metadata }` envelope and never prints env values.
+- Turborepo registration is checked with `envy check turbo`, which compares schema-declared keys with hashed Turbo env config.
 
 ## Local Checks
 
@@ -348,3 +354,15 @@ Every CLI command should also accept `--schema` for monorepos and one-off checks
 ```bash
 envy check local --schema apps/web/src/env/schema.ts --from apps/web/.env.production
 ```
+
+## Turborepo Checks
+
+Turborepo checks verify that schema-declared keys which can affect a task are registered with Turborepo's hashed environment configuration.
+
+```bash
+envy check turbo --schema apps/web/src/env/schema.ts --turbo turbo.json --task build
+```
+
+The check compares selected schema keys against `globalEnv`, `global.env`, and `tasks.<task>.env`. Exact keys and wildcard patterns such as `NEXT_PUBLIC_*` count as registrations. Negated patterns and passthrough env entries do not, because passthrough variables are available at runtime without contributing to the task hash.
+
+The default task is `build`, the default config path is `turbo.json`, and the default mode is `all`. Use `--mode client` when only public client variables should be registered for a task.

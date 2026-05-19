@@ -97,6 +97,37 @@ The dotenv parser supports common syntax: comments, blank lines, `export KEY=`,
 single-quoted values, double-quoted values, inline comments after unquoted
 values, and empty values. It does not append newlines to secrets.
 
+### `envy check turbo`
+
+Verify that schema-declared env keys are registered with Turborepo for a task.
+
+```bash
+npx envy check turbo --schema ./src/env/schema.ts
+npx envy check turbo --schema ./src/env/schema.ts --turbo turbo.json --task build
+npx envy check turbo --schema ./src/env/schema.ts --task test --mode server --json
+```
+
+The check reads the schema metadata and compares the selected keys with:
+
+- `globalEnv`
+- `global.env` when Turborepo's global configuration shape is used
+- `tasks.<task>.env`
+
+Exact key names and wildcard patterns such as `NEXT_PUBLIC_*` are accepted.
+Negated patterns do not count as registrations. `passThroughEnv` and
+`globalPassThroughEnv` are intentionally ignored because they make variables
+available at runtime without including them in the task hash.
+
+`--task` defaults to `build`, `--turbo` defaults to `turbo.json`, and `--mode`
+defaults to `all`. Use `--mode client` to require only public variables, or
+`--mode server` for the server-side parse surface.
+
+Missing registrations fail with exit code `65` and include only key names:
+
+```json
+{ "ok": false, "error": {}, "metadata": {} }
+```
+
 ### `envy run local`
 
 Validate env first, then run a command with the checked dotenv files loaded into
