@@ -13,7 +13,6 @@
     "clean": "pnpm -r clean",
     "lint": "howells-lint .",
     "lint:fix": "howells-format .",
-    "lint:strict": "howells-lint-strict .",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },
