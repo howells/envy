@@ -26,3 +26,17 @@ node packages/core/dist/cli.js --help
 - Ask before adding runtime dependencies or changing package names, scopes or publish strategy.
 - Releases publish from a `v*` tag via `.github/workflows/release.yml`. Never force-push tags or branches.
 - Don't overwrite other people's uncommitted work.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in Linear (howells, HOW). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default triage labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context. See `docs/agents/domain.md`.
