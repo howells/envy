@@ -31,7 +31,7 @@ node packages/core/dist/cli.js --help
 
 ### Issue tracker
 
-Issues live in Linear (howells, HOW). See `docs/agents/issue-tracker.md`.
+Linear, workspace `howells`, team `HOW`. See `~/Sites/home/docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
