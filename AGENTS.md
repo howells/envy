@@ -9,13 +9,14 @@ pnpm build
 pnpm test
 pnpm typecheck
 pnpm --filter @howells/envy test
-node packages/core/dist/cli.js --help
+node packages/core/dist/bin.js --help
 ```
 
 ## Layout
 
 - `packages/core/src/index.ts`: parser API.
-- `packages/core/src/cli.ts`: published `envy` binary.
+- `packages/core/src/cli.ts`: `runCli` and the CLI API; `src/cli/` holds the commands.
+- `packages/core/src/bin.ts`: published `envy` binary.
 - `packages/core/src/*.test.ts`: parser and CLI contract tests.
 - `docs/cli.md`: CLI behavior and exit-code contract.
 

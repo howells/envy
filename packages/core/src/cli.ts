@@ -1,7 +1,4 @@
-#!/usr/bin/env node
-
-import { readFileSync, realpathSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { parse } from "dotenv";
 import {
   type CliIO,
@@ -10,7 +7,12 @@ import {
   helpText,
   outputFormats,
 } from "./cli/commands.js";
-import { parseFlags, splitAtSeparator, wantsJson } from "./cli/flags.js";
+import {
+  parseFlags,
+  requireFlags,
+  splitAtSeparator,
+  wantsJson,
+} from "./cli/flags.js";
 import { CliUsageError, exitCodes, toCliProblem } from "./cli/problem.js";
 
 export type { CliIO, CliWritable } from "./cli/commands.js";
@@ -20,7 +22,7 @@ export type { CliIO, CliWritable } from "./cli/commands.js";
  *
  * This is the same implementation used by the `envy` binary. It is exported so
  * tests, custom CLIs, and agent wrappers can call Envy without spawning a child
- * process.
+ * process. Importing this module runs nothing.
  *
  * @param argv - Command arguments without `node` or the script path.
  * @param io - Optional process-like IO for tests and wrappers.
@@ -84,18 +86,20 @@ export async function runCli(
     return exitCodes.ok;
   }
 
-  if (accepts(spec, "--describe") && flagArgs.includes("--describe")) {
-    io.stdout.write(
-      envelope(`${spec.name} --describe`, { data: describeCli(), ok: true }),
-    );
-    return exitCodes.ok;
-  }
-
   const json = accepts(spec, "--json") && wantsJson(flagArgs);
 
   try {
     const flags = parseFlags(spec, args);
     if (accepts(spec, "--format")) flags.oneOf("format", outputFormats);
+
+    if (flags.has("describe")) {
+      io.stdout.write(
+        envelope(`${spec.name} --describe`, { data: describeCli(), ok: true }),
+      );
+      return exitCodes.ok;
+    }
+
+    requireFlags(spec, flags);
 
     const result = await spec.run(flags, io);
     if (typeof result === "number") return result;
@@ -179,13 +183,4 @@ function readPackageVersion(): string {
     throw new Error("package.json has no version string.");
   }
   return manifest.version;
-}
-
-function isDirectCliExecution(): boolean {
-  if (!process.argv[1]) return false;
-  return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
-}
-
-if (isDirectCliExecution()) {
-  process.exitCode = await runCli();
 }

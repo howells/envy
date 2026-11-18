@@ -139,23 +139,12 @@ This keeps tests and CLI tools free to pass plain objects.
 
 ## Test Support
 
-Tests should use explicit helpers:
+Tests pass plain objects to the parse methods; there is no test-only API:
 
 ```ts
-const env = envSchema.parseTest({
+const env = envSchema.parseServer({
   DATABASE_URL: "postgres://test:test@localhost:5432/test",
 });
-```
-
-```ts
-import { createEnvStore } from "envy/test";
-
-const store = createEnvStore(envSchema, {
-  DATABASE_URL: "postgres://test:test@localhost:5432/test",
-});
-
-store.override({ OPENAI_API_KEY: "test-key" });
-store.reset();
 ```
 
 Normal parsing should not weaken validation automatically in `NODE_ENV=test`.

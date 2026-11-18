@@ -23,6 +23,17 @@ describe("parseDotenv", () => {
     });
   });
 
+  it("cuts an unquoted value at # and keeps a quoted one whole", () => {
+    expect(
+      parseDotenv(
+        'BARE=postgres://u:p#ss@h/db\nQUOTED="postgres://u:p#ss@h/db"\n',
+      ),
+    ).toEqual({
+      BARE: "postgres://u:p",
+      QUOTED: "postgres://u:p#ss@h/db",
+    });
+  });
+
   it("agrees with the dotenv package on quoted values", () => {
     expect(
       parseDotenv(
@@ -462,6 +473,10 @@ describe("runCli", () => {
     [["check", "local", "--schema", "schema.mjs", "--mode", "nope"]],
     [["check", "local", "--schema", "schema.mjs", "--format", "nope"]],
     [["check", "local", "--schema"]],
+    [["check", "local", "--schema", ""]],
+    [["check", "local", "--schema", "schema.mjs", "--from", ""]],
+    [["check", "local", "--describe", "--nope"]],
+    [["check", "turbo", "--schema", "schema.mjs", "--turbo", ""]],
     [["check", "turbo", "--schema", "schema.mjs", "--nope"]],
     [["check", "turbo"]],
     [["run", "local", "--schema", "schema.mjs"]],
@@ -611,6 +626,35 @@ describe("runCli", () => {
         "Envy local check failed with 2 issue(s).\n- DATABASE_URL [server]: ",
       );
       expect(output.stderr).not.toContain("not-a-url");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it.each([
+    [["--json", "--format", "text"], "text"],
+    [["--format", "text", "--json"], "json"],
+    [["--format=json"], "json"],
+  ])("lets the last of %j decide the output format", async (formatArgs, expected) => {
+    const fixture = await createCliFixture();
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "check",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          ".env.production",
+          ...formatArgs,
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(0);
+      expect(output.stdout.startsWith("{")).toBe(expected === "json");
     } finally {
       await fixture.cleanup();
     }

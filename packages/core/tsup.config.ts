@@ -19,9 +19,9 @@ export default defineConfig([
     sourcemap: true,
   },
   {
-    // The CLI uses top-level await, so it ships as ESM only.
+    // The `envy` binary uses top-level await, so the CLI ships as ESM only.
     dts,
-    entry: ["src/cli.ts"],
+    entry: ["src/cli.ts", "src/bin.ts"],
     format: ["esm"],
     sourcemap: true,
   },

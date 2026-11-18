@@ -77,6 +77,10 @@ Files are parsed by the `dotenv` package, the same parser
 comments, blank lines, `export KEY=`, quoted and multiline values, inline
 comments, and empty values. It does not append newlines to secrets.
 
+In an unquoted value, `#` starts a comment even without a space before it, so
+`URL=postgres://user:p#ss@host/db` is read as `postgres://user:p`. Quote any
+value that contains `#`.
+
 ### `envy check turbo`
 
 Verify that schema-declared env keys are registered with Turborepo for a task.

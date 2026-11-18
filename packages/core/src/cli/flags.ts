@@ -25,6 +25,8 @@ export interface FlagSpec {
 export interface Flags {
   /** Everything after the `--` separator. */
   readonly command: readonly string[];
+  /** True when a boolean flag was passed. */
+  has(name: string): boolean;
   list(name: string): readonly string[];
   oneOf<TValue extends string>(
     name: string,
@@ -57,8 +59,11 @@ export function splitAtSeparator(
 /**
  * Parses a command's arguments against its option specs.
  *
- * @throws {@link CliUsageError} for unknown flags, missing values, missing
- * required flags, unsafe paths, or a missing command after `--`.
+ * Required flags are checked separately by {@link requireFlags}, so a command
+ * can answer `--describe` without them.
+ *
+ * @throws {@link CliUsageError} for unknown flags, missing or empty values,
+ * unsafe paths, or a missing command after `--`.
  */
 export function parseFlags(spec: FlagSpec, args: readonly string[]): Flags {
   const { command, flagArgs } = splitAtSeparator(spec, args);
@@ -112,11 +117,14 @@ export function parseFlags(spec: FlagSpec, args: readonly string[]): Flags {
   };
 
   for (const option of flagOptions) {
+    if (option.type === "boolean") continue;
     const key = flagKey(option);
-    if (option.required) required(key);
-    if (option.type === "path") {
-      for (const path of option.repeatable ? list(key) : [optional(key)]) {
-        if (path !== undefined) assertSafePath(option.name, path);
+    for (const value of option.repeatable ? list(key) : [optional(key)]) {
+      if (value === "") {
+        throw new CliUsageError(`Missing value for ${option.name}.`);
+      }
+      if (value !== undefined && option.type === "path") {
+        assertSafePath(option.name, value);
       }
     }
   }
@@ -136,6 +144,7 @@ export function parseFlags(spec: FlagSpec, args: readonly string[]): Flags {
 
   return {
     command: command ?? [],
+    has: (name) => values[name] === true,
     list,
     oneOf<TValue extends string>(name: string, allowed: readonly TValue[]) {
       const value = required(name);
@@ -152,14 +161,28 @@ export function parseFlags(spec: FlagSpec, args: readonly string[]): Flags {
   };
 }
 
-/** True when the arguments ask for JSON, without validating anything else. */
+/** Throws a usage error for the first required flag that was not passed. */
+export function requireFlags(spec: FlagSpec, flags: Flags): void {
+  for (const option of spec.options) {
+    if (option.required && option.type !== "separator") {
+      flags.required(flagKey(option));
+    }
+  }
+}
+
+/**
+ * True when the arguments ask for JSON. `--json` and `--format` are read in
+ * order and the last one wins. Nothing is validated, so this also works on
+ * arguments that fail to parse.
+ */
 export function wantsJson(args: readonly string[]): boolean {
-  return args.some(
-    (arg, index) =>
-      arg === "--json" ||
-      arg === "--format=json" ||
-      (arg === "--format" && args[index + 1] === "json"),
-  );
+  let json = false;
+  for (const [index, arg] of args.entries()) {
+    if (arg === "--json") json = true;
+    else if (arg === "--format") json = args[index + 1] === "json";
+    else if (arg.startsWith("--format=")) json = arg === "--format=json";
+  }
+  return json;
 }
 
 function flagKey(option: OptionSpec): string {
