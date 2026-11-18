@@ -11,7 +11,7 @@ describe("schema metadata helpers", () => {
   it("lists schema-declared variables without exposing schemas", () => {
     const envSchema = defineEnv({
       optional: {
-        SENTRY_DSN: v.optional(z.string().url(), { deploy: ["production"] }),
+        SENTRY_DSN: v(z.string().url(), { deploy: ["production"] }),
       },
       public: {
         NEXT_PUBLIC_APP_URL: z.string().url(),

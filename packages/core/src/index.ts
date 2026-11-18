@@ -335,11 +335,7 @@ export interface EnvSchema<TDefinition extends EnvDefinition> {
   parseServer(input: Record<string, unknown>): ServerEnv<TDefinition>;
 }
 
-interface NormalizedEntry {
-  readonly group: EnvGroupName;
-  readonly key: string;
-  readonly options: EnvVarOptions;
-  readonly optional: boolean;
+interface NormalizedEntry extends EnvVarMetadata {
   readonly schema: EnvValueSchema;
 }
 
@@ -523,27 +519,11 @@ export function listDeployEnvVars<TDefinition extends EnvDefinition>(
 }
 
 /**
- * Wraps a Zod schema with metadata for deploy and tooling helpers.
- *
- * This is intentionally not exported directly. Consumers use {@link v}, which
- * exposes the callable wrapper plus semantic aliases.
- */
-function defineVar<TSchema extends EnvValueSchema>(
-  schema: TSchema,
-  options: EnvVarOptions = {},
-): EnvVarDefinition<TSchema> {
-  return {
-    kind: "envy.var",
-    schema,
-    options,
-  };
-}
-
-/**
  * Concise helper for attaching metadata to a variable schema.
  *
  * Raw Zod schemas are accepted directly in every group, so use `v(...)` only
- * when a variable needs non-default metadata such as deploy targeting.
+ * when a variable needs non-default metadata such as deploy targeting. The
+ * containing group still decides how the variable is parsed.
  *
  * @example Attach deploy metadata without changing parser behavior.
  * ```ts
@@ -559,44 +539,16 @@ function defineVar<TSchema extends EnvValueSchema>(
  * });
  * ```
  */
-export const v = Object.assign(defineVar, {
-  /**
-   * Wraps a public variable schema with metadata.
-   *
-   * The containing `public` group still controls public semantics; this alias is
-   * present for API symmetry and future flat-schema support.
-   */
-  public<TSchema extends EnvValueSchema>(
-    schema: TSchema,
-    options: EnvVarOptions = {},
-  ) {
-    return defineVar(schema, options);
-  },
-  /**
-   * Wraps a system variable schema with metadata.
-   *
-   * The containing `system` group still controls system semantics; this alias is
-   * present for API symmetry and future flat-schema support.
-   */
-  system<TSchema extends EnvValueSchema>(
-    schema: TSchema,
-    options: EnvVarOptions = {},
-  ) {
-    return defineVar(schema, options);
-  },
-  /**
-   * Wraps an optional variable schema with metadata.
-   *
-   * The containing `optional` group still controls optional semantics; this
-   * alias is present for API symmetry and future flat-schema support.
-   */
-  optional<TSchema extends EnvValueSchema>(
-    schema: TSchema,
-    options: EnvVarOptions = {},
-  ) {
-    return defineVar(schema, options);
-  },
-});
+export function v<TSchema extends EnvValueSchema>(
+  schema: TSchema,
+  options: EnvVarOptions = {},
+): EnvVarDefinition<TSchema> {
+  return {
+    kind: "envy.var",
+    schema,
+    options,
+  };
+}
 
 function normalizeDefinition(
   definition: EnvDefinition,
