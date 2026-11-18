@@ -12,7 +12,7 @@
       "require": "./dist/index.cjs"
     },
     "./cli": {
-      "types": "./src/cli.d.ts",
+      "types": "./dist/cli.d.ts",
       "import": "./dist/cli.js"
     },
     "./dotenv": {
@@ -44,13 +44,11 @@
   "files": [
     "dist",
     "AGENTS.md",
-    "src/cli.d.ts",
-    "src/cli.ts",
     "src/index.ts",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/dotenv.ts src/next.ts src/lint.ts src/adapters/vercel.ts src/adapters/railway.ts --format esm,cjs --dts --clean --sourcemap && tsup src/cli.ts --format esm --no-config --clean=false --sourcemap",
+    "build": "rm -rf dist && tsup",
     "clean": "rm -rf dist",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"

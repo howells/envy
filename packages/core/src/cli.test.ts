@@ -444,6 +444,203 @@ describe("runCli", () => {
       await fixture.cleanup();
     }
   });
+
+  it.each([
+    [["check", "local", "--schema", "schema.mjs", "--nope"]],
+    [["check", "local", "--schema", "schema.mjs", "--mode", "nope"]],
+    [["check", "local", "--schema", "schema.mjs", "--format", "nope"]],
+    [["check", "local", "--schema"]],
+    [["check", "turbo", "--schema", "schema.mjs", "--nope"]],
+    [["check", "turbo"]],
+    [["run", "local", "--schema", "schema.mjs"]],
+    [["run", "local", "--schema", "schema.mjs", "--"]],
+    [["run", "local", "--schema", "schema.mjs", "--nope", "--", "node"]],
+    [["run", "local", "--schema", "schema.mjs", "--json", "--", "node"]],
+  ])("exits 64 with a text usage error for %j", async (argv) => {
+    const output = createOutput();
+    const code = await runCli(argv, output.io);
+
+    expect(code).toBe(64);
+    expect(output.stdout).toBe("");
+    expect(output.stderr).toContain("sage error");
+  });
+
+  it("exits 64 with help on stderr for an unknown command", async () => {
+    const output = createOutput();
+    const code = await runCli(["nope"], output.io);
+
+    expect(code).toBe(64);
+    expect(output.stdout).toBe("");
+    expect(output.stderr).toContain("Usage error: Unknown command: nope");
+    expect(output.stderr).toContain("Usage:");
+  });
+
+  it.each([
+    [["check", "local", "--help"]],
+    [["check", "turbo", "-h"]],
+    [["run", "local", "--help"]],
+  ])("prints help and exits 0 for %j", async (argv) => {
+    const output = createOutput();
+    const code = await runCli(argv, output.io);
+
+    expect(code).toBe(0);
+    expect(output.stdout).toContain("Usage:");
+    expect(output.stderr).toBe("");
+  });
+
+  it("leaves --help after the separator to the child command", async () => {
+    const fixture = await createCliFixture();
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "run",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          ".env.production",
+          "--",
+          process.execPath,
+          "-e",
+          "console.log(process.argv.at(-1))",
+          "--",
+          "--help",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(0);
+      expect(output.stdout.trim()).toBe("--help");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("reports the package version in describe output", async () => {
+    const output = createOutput();
+    await runCli(["describe"], output.io);
+    const version = createOutput();
+    await runCli(["--version"], version.io);
+
+    expect(JSON.parse(output.stdout).data.version).toBe(version.stdout.trim());
+    expect(version.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  it("lists missing turbo keys in text output", async () => {
+    const fixture = await createCliFixture({
+      turboJson: JSON.stringify({
+        tasks: { build: { env: ["DATABASE_URL"] } },
+      }),
+    });
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        ["check", "turbo", "--schema", "schema.mjs"],
+        output.io,
+      );
+
+      expect(code).toBe(65);
+      expect(output.stdout).toBe("");
+      expect(output.stderr).toBe(
+        "Envy turbo check failed: 1 variable(s) missing from build env.\n- OPENAI_API_KEY\n",
+      );
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("exits 64 when the turbo task does not exist", async () => {
+    const fixture = await createCliFixture({
+      turboJson: JSON.stringify({ tasks: {} }),
+    });
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        ["check", "turbo", "--schema", "schema.mjs", "--json"],
+        output.io,
+      );
+
+      expect(code).toBe(64);
+      expect(JSON.parse(output.stderr)).toMatchObject({
+        error: { code: "ENVY_USAGE_ERROR" },
+        metadata: { command: "check turbo" },
+        ok: false,
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("lists validation issues in text output without values", async () => {
+    const fixture = await createCliFixture({
+      envFile: "DATABASE_URL=not-a-url\n",
+    });
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "check",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          ".env.production",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(65);
+      expect(output.stderr).toContain(
+        "Envy local check failed with 2 issue(s).\n- DATABASE_URL [server]: ",
+      );
+      expect(output.stderr).not.toContain("not-a-url");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("describes check local without a schema", async () => {
+    const output = createOutput();
+    const code = await runCli(["check", "local", "--describe"], output.io);
+
+    expect(code).toBe(0);
+    expect(JSON.parse(output.stdout)).toMatchObject({
+      data: { name: "envy" },
+      metadata: { command: "check local --describe" },
+      ok: true,
+    });
+  });
+
+  it("exits 66 when the command cannot be started", async () => {
+    const fixture = await createCliFixture();
+    const output = createOutput(fixture.cwd);
+
+    try {
+      const code = await runCli(
+        [
+          "run",
+          "local",
+          "--schema",
+          "schema.mjs",
+          "--from",
+          ".env.production",
+          "--",
+          "envy-no-such-executable",
+        ],
+        output.io,
+      );
+
+      expect(code).toBe(66);
+      expect(output.stderr).toContain("Command could not be started");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
 });
 
 function createOutput(cwd = process.cwd()): {
