@@ -1,8 +1,12 @@
 import { defineConfig } from "tsup";
 
+// Entry points import modules that are not entry points themselves, which the
+// declaration build rejects while the tsconfig's `composite` is on.
+const dts = { compilerOptions: { composite: false } };
+
 export default defineConfig([
   {
-    dts: true,
+    dts,
     entry: [
       "src/index.ts",
       "src/dotenv.ts",
@@ -15,9 +19,8 @@ export default defineConfig([
     sourcemap: true,
   },
   {
-    // The CLI uses top-level await, so it ships as ESM only. Its modules are
-    // not entry points, which the declaration build rejects under `composite`.
-    dts: { compilerOptions: { composite: false } },
+    // The CLI uses top-level await, so it ships as ESM only.
+    dts,
     entry: ["src/cli.ts"],
     format: ["esm"],
     sourcemap: true,

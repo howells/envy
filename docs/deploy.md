@@ -79,7 +79,7 @@ Pushes:
 - exclude `system` keys by default
 - push optional keys only when present
 - never print secret values
-- skip existing remote vars unless `--overwrite`
+- skip existing remote vars; Railway replaces them only with `overwrite: true`, and Vercel never replaces them
 - refuse deletes in v1
 
 ## Why Not Shell Pipes

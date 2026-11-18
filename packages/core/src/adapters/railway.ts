@@ -7,6 +7,10 @@
  * @module
  */
 
+import { checkKeys, type ProviderCheckResult } from "./provider.js";
+
+export type { ProviderCheckResult } from "./provider.js";
+
 /**
  * Railway adapter configuration.
  */
@@ -41,16 +45,6 @@ export interface RailwayPushRequest {
   readonly overwrite?: boolean;
   /** Schema-declared values to write. */
   readonly values: Readonly<Record<string, string>>;
-}
-
-/**
- * Structured provider check result.
- */
-export interface ProviderCheckResult {
-  /** Variables present in the provider. */
-  readonly present: readonly string[];
-  /** Variables missing from the provider. */
-  readonly missing: readonly string[];
 }
 
 /**
@@ -110,13 +104,7 @@ export function railway(options: RailwayAdapterOptions): RailwayDeployAdapter {
     name: "railway",
     async check(request) {
       const existing = await listRailwayEnv(fetcher, options);
-      const present = request.keys.filter((key) => existing.has(key));
-      const missing = request.keys.filter((key) => !existing.has(key));
-
-      return {
-        missing,
-        present,
-      };
+      return checkKeys(request.keys, existing);
     },
     async push(request) {
       const existing = await listRailwayEnv(fetcher, options);

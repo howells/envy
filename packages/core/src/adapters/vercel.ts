@@ -8,6 +8,10 @@
  * @module
  */
 
+import { checkKeys, type ProviderCheckResult } from "./provider.js";
+
+export type { ProviderCheckResult } from "./provider.js";
+
 /**
  * Vercel env targets supported by Envy.
  */
@@ -45,20 +49,8 @@ export interface VercelPushRequest {
   readonly dryRun?: boolean;
   /** Target Vercel environment. */
   readonly environment: VercelEnvironment;
-  /** Allows replacing existing values. Currently unsupported for Vercel API safety. */
-  readonly overwrite?: boolean;
   /** Schema-declared values to write. */
   readonly values: Readonly<Record<string, string>>;
-}
-
-/**
- * Structured provider check result.
- */
-export interface ProviderCheckResult {
-  /** Variables present in the provider. */
-  readonly present: readonly string[];
-  /** Variables missing from the provider. */
-  readonly missing: readonly string[];
 }
 
 /**
@@ -81,7 +73,10 @@ export interface VercelDeployAdapter {
   readonly name: "vercel";
   /** Checks that schema-declared variables exist in Vercel. */
   check(request: VercelCheckRequest): Promise<ProviderCheckResult>;
-  /** Pushes schema-declared values to Vercel without printing secret values. */
+  /**
+   * Creates schema-declared values in Vercel without printing secret values.
+   * Variables that already exist are skipped, never replaced.
+   */
   push(request: VercelPushRequest): Promise<ProviderPushResult>;
 }
 
@@ -126,13 +121,7 @@ export function vercel(options: VercelAdapterOptions): VercelDeployAdapter {
         options,
         request.environment,
       );
-      const present = request.keys.filter((key) => existing.has(key));
-      const missing = request.keys.filter((key) => !existing.has(key));
-
-      return {
-        missing,
-        present,
-      };
+      return checkKeys(request.keys, existing);
     },
     async push(request) {
       const existing = await listVercelEnv(
@@ -145,12 +134,6 @@ export function vercel(options: VercelAdapterOptions): VercelDeployAdapter {
 
       for (const [key, value] of Object.entries(request.values)) {
         if (existing.has(key)) {
-          if (request.overwrite) {
-            throw new Error(
-              "Vercel overwrite is intentionally blocked. Delete or rotate the variable manually, then push again.",
-            );
-          }
-
           skipped.push(key);
           continue;
         }
