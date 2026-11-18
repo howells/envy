@@ -72,17 +72,12 @@ export function parseDotenvFile(
   path: string,
   options: Pick<LoadDotenvOptions, "cwd" | "skipMissing"> = {},
 ): Record<string, string> {
-  const resolvedPath = resolve(options.cwd ?? process.cwd(), path);
-
-  if (!existsSync(resolvedPath)) {
-    if (options.skipMissing) {
-      return {};
-    }
-
-    throw new Error(`Dotenv file not found: ${resolvedPath}`);
-  }
-
-  return parse(readFileSync(resolvedPath));
+  return (
+    readDotenvFile(
+      resolve(options.cwd ?? process.cwd(), path),
+      options.skipMissing ?? false,
+    ) ?? {}
+  );
 }
 
 /**
@@ -115,13 +110,8 @@ export function loadDotenv(
 
   for (const path of paths) {
     const resolvedPath = resolve(options.cwd ?? process.cwd(), path);
-    const parsed = parseDotenvFile(resolvedPath, {
-      skipMissing: options.skipMissing,
-    });
-
-    if (Object.keys(parsed).length === 0 && !existsSync(resolvedPath)) {
-      continue;
-    }
+    const parsed = readDotenvFile(resolvedPath, options.skipMissing ?? false);
+    if (!parsed) continue;
 
     loaded.push(resolvedPath);
 
@@ -139,4 +129,17 @@ export function loadDotenv(
     loaded,
     written: [...written].sort(),
   };
+}
+
+/** Returns `undefined` for a missing file when `skipMissing` allows it. */
+function readDotenvFile(
+  resolvedPath: string,
+  skipMissing: boolean,
+): Record<string, string> | undefined {
+  if (!existsSync(resolvedPath)) {
+    if (skipMissing) return undefined;
+    throw new Error(`Dotenv file not found: ${resolvedPath}`);
+  }
+
+  return parse(readFileSync(resolvedPath));
 }

@@ -75,6 +75,40 @@ describe("dotenv helpers", () => {
       await rm(cwd, { force: true, recursive: true });
     }
   });
+
+  it("skips missing files only when asked, and still loads empty ones", async () => {
+    const cwd = join(process.cwd(), ".tmp-envy-dotenv-missing");
+    const target: Record<string, string | undefined> = {};
+
+    await rm(cwd, { force: true, recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(join(cwd, ".env.empty"), "");
+    await writeFile(join(cwd, ".env"), "A=1\n");
+
+    try {
+      expect(
+        loadDotenv([".env.missing", ".env.empty", ".env"], {
+          cwd,
+          processEnv: target,
+          skipMissing: true,
+        }),
+      ).toEqual({
+        loaded: [join(cwd, ".env.empty"), join(cwd, ".env")],
+        written: ["A"],
+      });
+      expect(
+        parseDotenvFile(".env.missing", { cwd, skipMissing: true }),
+      ).toEqual({});
+      expect(() => loadDotenv([".env.missing"], { cwd })).toThrow(
+        "Dotenv file not found",
+      );
+      expect(() => parseDotenvFile(".env.missing", { cwd })).toThrow(
+        "Dotenv file not found",
+      );
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
 });
 
 describe("Next helpers", () => {

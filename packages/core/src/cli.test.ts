@@ -22,6 +22,18 @@ describe("parseDotenv", () => {
       SINGLE_QUOTED: "plain value",
     });
   });
+
+  it("agrees with the dotenv package on quoted values", () => {
+    expect(
+      parseDotenv(
+        'QUOTED="value" # comment\nMULTILINE="line one\nline two"\nHASH="a # b"\n',
+      ),
+    ).toEqual({
+      HASH: "a # b",
+      MULTILINE: "line one\nline two",
+      QUOTED: "value",
+    });
+  });
 });
 
 describe("runCli", () => {

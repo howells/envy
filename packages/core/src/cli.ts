@@ -2,6 +2,7 @@
 
 import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { parse } from "dotenv";
 import {
   type CliIO,
   type CommandSpec,
@@ -13,7 +14,6 @@ import { parseFlags, splitAtSeparator, wantsJson } from "./cli/flags.js";
 import { CliUsageError, exitCodes, toCliProblem } from "./cli/problem.js";
 
 export type { CliIO, CliWritable } from "./cli/commands.js";
-export { parseDotenv } from "./cli/dotenv-input.js";
 
 /**
  * Runs the Envy command-line interface.
@@ -115,6 +115,21 @@ export async function runCli(
     );
     return failure.exitCode;
   }
+}
+
+/**
+ * Parses dotenv file contents into raw key/value pairs.
+ *
+ * This is the `dotenv` package's parser, the same one
+ * `@howells/envy/dotenv` loads files with, so `envy check local --from`
+ * validates the values an app will read. It never appends newlines to values
+ * and does not touch `process.env`.
+ *
+ * @param contents - Raw dotenv file contents.
+ * @returns Parsed key/value pairs.
+ */
+export function parseDotenv(contents: string): Record<string, string> {
+  return parse(contents);
 }
 
 /**

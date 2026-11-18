@@ -72,9 +72,10 @@ When `--from` is omitted, the CLI validates the current process environment.
 When one or more `--from` files are provided, files are parsed and merged in
 order without mutating `process.env`.
 
-The dotenv parser supports common syntax: comments, blank lines, `export KEY=`,
-single-quoted values, double-quoted values, inline comments after unquoted
-values, and empty values. It does not append newlines to secrets.
+Files are parsed by the `dotenv` package, the same parser
+`@howells/envy/dotenv` uses, so the check sees the values an app will load:
+comments, blank lines, `export KEY=`, quoted and multiline values, inline
+comments, and empty values. It does not append newlines to secrets.
 
 ### `envy check turbo`
 
