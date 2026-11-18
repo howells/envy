@@ -30,44 +30,6 @@ importers:
         specifier: ^4.3.6
         version: 4.4.3
 
-  packages/adapters/railway:
-    dependencies:
-      '@howells/envy':
-        specifier: workspace:*
-        version: link:../../core
-
-  packages/adapters/vercel:
-    dependencies:
-      '@howells/envy':
-        specifier: workspace:*
-        version: link:../../core
-
-  packages/cli:
-    dependencies:
-      '@envy/adapter-railway':
-        specifier: workspace:*
-        version: link:../adapters/railway
-      '@envy/adapter-vercel':
-        specifier: workspace:*
-        version: link:../adapters/vercel
-      '@envy/config':
-        specifier: workspace:*
-        version: link:../config
-      '@envy/dotenv':
-        specifier: workspace:*
-        version: link:../dotenv
-      '@envy/lint':
-        specifier: workspace:*
-        version: link:../lint
-      '@envy/next':
-        specifier: workspace:*
-        version: link:../next
-      '@howells/envy':
-        specifier: workspace:*
-        version: link:../core
-
-  packages/config: {}
-
   packages/core:
     dependencies:
       dotenv:
@@ -77,33 +39,6 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.4.3
-
-  packages/dotenv:
-    dependencies:
-      '@howells/envy':
-        specifier: workspace:*
-        version: link:../core
-      dotenv:
-        specifier: ^17.2.3
-        version: 17.4.2
-
-  packages/lint:
-    dependencies:
-      '@howells/envy':
-        specifier: workspace:*
-        version: link:../core
-
-  packages/next:
-    dependencies:
-      '@howells/envy':
-        specifier: workspace:*
-        version: link:../core
-
-  packages/test:
-    dependencies:
-      '@howells/envy':
-        specifier: workspace:*
-        version: link:../core
 
 packages:
 

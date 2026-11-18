@@ -12,27 +12,6 @@ It provides a working local preflight check for validating
 `process.env` or dotenv files against an Envy schema before CI or deployment
 continues.
 
-## Config
-
-`envy.config.ts` gives project defaults a typed home. The local check remains
-explicit and accepts `--schema` for monorepos and one-off checks.
-
-```ts
-import { defineConfig } from "@envy/config";
-
-export default defineConfig({
-  schema: "./src/env/schema.ts",
-  envDir: ".",
-  defaultTarget: "vercel",
-});
-```
-
-Use a schema path for monorepos and one-off checks.
-
-```bash
-envy check local --schema apps/web/src/env/schema.ts --from apps/web/.env.production
-```
-
 ## Commands
 
 ### `envy check local`

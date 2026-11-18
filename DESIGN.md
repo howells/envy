@@ -20,16 +20,13 @@ The goal is not to recreate `t3-env` exactly. The useful part to keep is grouped
 
 ```txt
 packages/
-  core/                 # defineEnv, parsing, metadata, type model
-  cli/                  # envy binary, config loading, check/push/init/sync
-  config/               # defineConfig for envy.config.ts
-  dotenv/               # .env parser/loading helpers
-  next/                 # Next init/sync/codegen helpers
-  test/                 # parseTest/createEnvStore helpers
-  lint/                 # oxlint/biome/eslint config helpers
-  adapters/
-    vercel/             # check/push Vercel
-    railway/            # check/push Railway
+  core/                 # the published @howells/envy package
+    src/index.ts        # defineEnv, parsing, metadata, type model
+    src/cli.ts          # envy binary
+    src/dotenv.ts       # @howells/envy/dotenv
+    src/next.ts         # @howells/envy/next
+    src/lint.ts         # @howells/envy/lint
+    src/adapters/       # @howells/envy/adapters/vercel, /railway
 ```
 
 Development baseline:
@@ -289,7 +286,7 @@ No values printed.
 
 ## Settled Decisions
 
-- Package structure is a pnpm TypeScript monorepo with `packages/core` as the published `@howells/envy` package and supporting adapter, lint, Next, dotenv, config, and test packages.
+- Package structure is a pnpm TypeScript monorepo with `packages/core` as the only package, published as `@howells/envy`. Adapter, lint, Next, and dotenv helpers ship as subpaths of that package.
 - Builds use `tsup`, TypeScript typechecking, Vitest, and package-level scripts coordinated from the root.
 - Grouped schema flattening is implemented through `server`, `public`, `system`, and `optional` groups. Server parsing includes server, public, system, and optional keys; client parsing includes public keys only.
 - CLI commands use semantic exit codes: `0` for success, `64` for usage errors, `65` for validation failures, `66` for unreadable inputs, and `70` for internal errors.

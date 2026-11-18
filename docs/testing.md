@@ -31,28 +31,6 @@ Normal parsing does not weaken validation because `NODE_ENV` is `test`.
 
 If a test needs fewer values, pass those values through a schema that allows them.
 
-## Mutable Test State
-
-Use `@envy/test` when a suite needs controlled override/reset behavior:
-
-```ts
-import { createEnvStore } from "@envy/test";
-import { envSchema } from "../src/env/schema";
-
-const store = createEnvStore(envSchema, {
-  DATABASE_URL: "https://db.example.com",
-  NEXT_PUBLIC_APP_URL: "https://app.example.com",
-});
-
-store.override({ OPENAI_API_KEY: "test-key" });
-
-const env = envSchema.parseServer(store.values());
-
-store.reset();
-```
-
-The store does not mutate `process.env`.
-
 ## Lazy Mode In Tests
 
 Use `lazy()` for code paths where not every declared value is needed:

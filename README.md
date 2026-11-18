@@ -163,19 +163,6 @@ const env = envSchema.parseServer({
 });
 ```
 
-For mutable test state:
-
-```ts
-import { createEnvStore } from "@envy/test";
-
-const store = createEnvStore(envSchema, {
-  DATABASE_URL: "https://db.example.com",
-});
-
-store.override({ OPENAI_API_KEY: "test-key" });
-store.reset();
-```
-
 See [Testing Guide](./docs/testing.md).
 
 ## CLI
@@ -246,16 +233,13 @@ import { railway } from "@howells/envy/adapters/railway";
 
 ```txt
 packages/
-  core/                 # defineEnv, parsing, metadata, type model
-  cli/                  # envy binary, config loading, check/push/init/sync
-  config/               # defineConfig for envy.config.ts
-  dotenv/               # .env parser/loading helpers
-  next/                 # Next init/sync/codegen helpers
-  test/                 # test helpers
-  lint/                 # oxlint/biome/eslint config helpers
-  adapters/
-    vercel/             # Vercel check/push
-    railway/            # Railway check/push
+  core/                 # the published @howells/envy package
+    src/index.ts        # defineEnv, parsing, metadata, type model
+    src/cli.ts          # envy binary
+    src/dotenv.ts       # @howells/envy/dotenv
+    src/next.ts         # @howells/envy/next
+    src/lint.ts         # @howells/envy/lint
+    src/adapters/       # @howells/envy/adapters/vercel, /railway
 ```
 
 ## Development
